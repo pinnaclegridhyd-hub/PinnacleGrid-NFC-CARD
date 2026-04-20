@@ -40,66 +40,64 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center p-6 relative overflow-hidden">
       {/* Decorative Elements */}
-      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-indigo-50 rounded-full blur-[100px] -translate-y-1/2 -translate-x-1/2" />
-      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue-50 rounded-full blur-[100px] translate-y-1/2 translate-x-1/2" />
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[100px] -translate-y-1/2 -translate-x-1/2" />
+      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[100px] translate-y-1/2 translate-x-1/2" />
 
-      <div className="w-full max-w-[480px] relative">
+      <div className="w-full max-w-[440px] relative">
         <div className="text-center mb-10">
-          <Link href="/" className="inline-flex items-center gap-2 mb-8 group">
-            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center group-hover:rotate-6 transition-transform shadow-xl shadow-indigo-200">
-              <UserPlus className="text-white w-7 h-7" />
+          <Link href="/" className="inline-flex items-center gap-3 mb-8 group">
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-sm">
+              <UserPlus className="text-white w-6 h-6" />
             </div>
-            <span className="text-3xl font-black tracking-tighter text-slate-900">ReviewBoost</span>
+            <span className="text-2xl font-bold tracking-tight text-slate-900 font-inter">Pinnacle Grid</span>
           </Link>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Create Account</h1>
-          <p className="text-slate-500 mt-3 font-medium text-lg">Start managing your NFC review network.</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Create Account</h1>
+          <p className="text-slate-500 mt-2 font-medium">Provision your administrative network access.</p>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] p-10 border border-slate-100 backdrop-blur-sm">
-          <form onSubmit={handleSignup} className="space-y-6">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2.5 ml-1">Email Address</label>
+        <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-10 border border-slate-200">
+          <form onSubmit={handleSignup} className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Email Address</label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
                   type="email" 
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium text-slate-900"
+                  placeholder="name@pinnaclegrid.com"
+                  className="input-premium pl-11"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2.5 ml-1">Create Password</label>
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Create Password</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Min. 8 characters"
-                  className="w-full pl-12 pr-14 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium text-slate-900"
+                  className="input-premium pl-11 pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-0 top-0 bottom-0 px-5 flex items-center justify-center text-slate-400 hover:text-indigo-600 transition-colors z-10"
+                  className="absolute right-0 top-0 bottom-0 px-4 flex items-center justify-center text-slate-400 hover:text-primary transition-colors"
                 >
-                  <div className="pointer-events-none">
-                    {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
-                  </div>
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
             {error && (
-              <div className="p-4 bg-rose-50 border border-rose-100 text-rose-600 rounded-2xl text-sm font-bold animate-in slide-in-from-top-2">
+              <div className="px-4 py-3 bg-rose-50 border border-rose-100 text-rose-600 rounded-lg text-xs font-bold animate-in fade-in slide-in-from-top-1">
                 {error}
               </div>
             )}
@@ -107,23 +105,23 @@ export default function SignupPage() {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-50 disabled:scale-100 text-lg"
+              className="btn-premium-primary w-full py-3.5 mt-2"
             >
-              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Get Started'}
-              {!loading && <ArrowRight className="w-6 h-6" />}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Account'}
+              {!loading && <ArrowRight className="w-5 h-5" />}
             </button>
           </form>
 
-          <p className="text-center mt-10 text-slate-500 font-medium">
-            Already have an account? {' '}
-            <Link href="/login" className="text-indigo-600 font-black hover:underline">
+          <p className="text-center mt-8 text-slate-500 font-medium text-sm">
+            Already registered? {' '}
+            <Link href="/login" className="text-primary font-bold hover:underline">
               Log in instead
             </Link>
           </p>
         </div>
 
         {/* Security Info */}
-        <div className="mt-12 flex items-center justify-center gap-3 text-slate-400 font-bold text-xs uppercase tracking-widest">
+        <div className="mt-12 flex items-center justify-center gap-3 text-slate-400 font-bold text-[10px] uppercase tracking-widest">
           <ShieldCheck className="w-5 h-5" />
           Secure Data Encryption
         </div>

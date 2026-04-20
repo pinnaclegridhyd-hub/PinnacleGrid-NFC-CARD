@@ -8,6 +8,7 @@ export default function ActivationForm({ card_id }: { card_id: string }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [countdown, setCountdown] = useState(3);
 
   const handleActivate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +27,17 @@ export default function ActivationForm({ card_id }: { card_id: string }) {
       if (res.ok) {
         setStatus('success');
         setMessage('Your NFC card is now live and ready to boost your reputation!');
+        
+        // Start countdown and redirect
+        let timer = 3;
+        const interval = setInterval(() => {
+          timer -= 1;
+          setCountdown(timer);
+          if (timer <= 0) {
+            clearInterval(interval);
+            window.location.href = reviewUrl;
+          }
+        }, 1000);
       } else {
         setStatus('error');
         setMessage(data.error || 'Activation failed');
@@ -48,15 +60,27 @@ export default function ActivationForm({ card_id }: { card_id: string }) {
         <p className="text-slate-500 font-medium text-lg leading-relaxed mb-10">
           {message}
         </p>
-        <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-center gap-3 mb-8">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-sm font-bold text-slate-600 uppercase tracking-widest">Card ID: {card_id}</span>
+        
+        <div className="relative group cursor-pointer" onClick={() => window.location.href = reviewUrl}>
+          <div className="absolute -inset-1 bg-gradient-to-r from-green-400 to-blue-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+          <div className="relative p-6 bg-white rounded-3xl border border-slate-100 flex flex-col items-center justify-center gap-3 mb-8">
+            <span className="text-sm font-black text-slate-600 uppercase tracking-[0.2em]">Redirecting in {countdown}...</span>
+            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="bg-green-500 h-full transition-all duration-1000 ease-linear"
+                style={{ width: `${(countdown / 3) * 100}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">{reviewUrl}</p>
+          </div>
         </div>
+
         <button 
-          onClick={() => window.location.href = '/'}
-          className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 text-lg"
+          onClick={() => window.location.href = reviewUrl}
+          className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 text-lg flex items-center justify-center gap-3"
         >
-          Return to Hub
+          Check Now
+          <ArrowRight className="w-5 h-5" />
         </button>
       </div>
     );

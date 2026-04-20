@@ -25,26 +25,25 @@ export default function Navbar() {
   return (
     <nav className={cn(
       "fixed top-0 left-0 right-0 z-50 transition-all duration-300 px-6 py-4",
-      isScrolled ? "bg-white/80 backdrop-blur-lg border-b border-slate-200 py-3" : "bg-transparent"
+      isScrolled ? "bg-white/90 backdrop-blur-md border-b border-slate-200 py-3" : "bg-transparent"
     )}>
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center group-hover:rotate-6 transition-transform">
-            <Smartphone className="text-white w-6 h-6" />
+        <Link href="/" className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shadow-sm">
+            <Smartphone className="text-white w-5 h-5" />
           </div>
-          <span className="text-2xl font-black tracking-tighter text-slate-900">ReviewBoost</span>
+          <span className="text-xl font-bold tracking-tight text-slate-900 font-inter">Pinnacle Grid</span>
         </Link>
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
-          <Link href="/#features" className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors">Features</Link>
-          <Link href="/#how-it-works" className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors">How it Works</Link>
-          <Link href="/#pricing" className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors">Pricing</Link>
-          <div className="h-6 w-px bg-slate-200 mx-2" />
-          <Link href="/login" className="text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors">Log In</Link>
-          <Link href="/signup" className="px-6 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg hover:shadow-slate-200 active:scale-95 text-sm">
-            Get Started
+          <Link href="/#features" className="text-xs font-bold text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">Solutions</Link>
+          <Link href="/#pricing" className="text-xs font-bold text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">Partners</Link>
+          <div className="h-4 w-px bg-slate-200 mx-2" />
+          <Link href="/login" className="text-xs font-bold text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">Sign In</Link>
+          <Link href="/signup" className="px-5 py-2.5 bg-primary text-white font-bold rounded-lg hover:shadow-lg transition-all text-sm">
+            Contact Sales
           </Link>
         </div>
 
@@ -59,17 +58,17 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="absolute top-full left-0 right-0 bg-white border-b border-slate-200 p-6 flex flex-col gap-6 md:hidden animate-in slide-in-from-top-4 duration-300">
-          <Link href="/#features" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-semibold text-slate-900">Features</Link>
-          <Link href="/#how-it-works" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-semibold text-slate-900">How it Works</Link>
-          <Link href="/#pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-semibold text-slate-900">Pricing</Link>
+        <div className="absolute top-full left-0 right-0 bg-white border-b border-slate-200 p-8 flex flex-col gap-6 md:hidden animate-in slide-in-from-top-2 duration-200">
+          <Link href="/#features" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-slate-900">Solutions</Link>
+          <Link href="/#pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-slate-900">Partners</Link>
           <hr />
-          <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-semibold text-slate-900">Log In</Link>
-          <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl text-center">
-            Get Started
+          <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-slate-900">Sign In</Link>
+          <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-4 bg-primary text-white font-bold rounded-xl text-center">
+            Contact Sales
           </Link>
         </div>
       )}
     </nav>
   );
 }
+

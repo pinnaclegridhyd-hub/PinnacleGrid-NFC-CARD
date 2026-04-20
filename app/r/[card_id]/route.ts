@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db';
 import Card from '@/lib/models/Card';
 import Analytics from '@/lib/models/Analytics';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ card_id: string }> }
