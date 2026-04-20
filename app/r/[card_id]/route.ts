@@ -22,6 +22,7 @@ export async function GET(
     const card = await Card.findOne({ card_id }).lean();
 
     if (!card) {
+      console.error(`[Redirect] Card ID not found: ${card_id}`);
       return NextResponse.redirect(new URL(`/error?type=Not%20Found&message=Card%20ID%20${card_id}%20does%20not%20exist.%20Please%20generate%20it%20in%20the%20dashboard%20first.`, req.url));
     }
 
@@ -63,7 +64,12 @@ export async function GET(
     logAnalytics();
 
     // 5. Instant Redirect
-    return NextResponse.redirect(new URL(card.review_url, origin));
+    try {
+      return NextResponse.redirect(new URL(card.review_url, origin));
+    } catch (err: any) {
+      console.error(`[Redirect] Failed for card ${card_id} | Target URL: ${card.review_url} | Error: ${err.message}`);
+      return NextResponse.redirect(new URL(`/error?type=Invalid%20URL&message=The%20configured%20destination%20URL%20is%20malformed.`, origin));
+    }
   } catch (error: any) {
     return new NextResponse('Internal Server Error', { status: 500 });
   }

@@ -1,9 +1,30 @@
 import ActivationForm from '@/components/ActivationForm';
 import { ShieldCheck, Smartphone, Zap } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import dbConnect from '@/lib/db';
+import Card from '@/lib/models/Card';
+import { redirect } from 'next/navigation';
 
-export default async function ActivationPage({ params }: { params: { card_id: string } }) {
+export default async function ActivationPage({ params }: { params: Promise<{ card_id: string }> }) {
   const { card_id } = await params;
+
+  try {
+    await dbConnect();
+    const card = await Card.findOne({ card_id }).lean();
+
+    if (card && card.is_activated && card.review_url) {
+      // Redirect to the redirect handler to ensure analytics are logged
+      redirect(`/r/${card_id}`);
+    }
+
+    if (!card) {
+      redirect(`/error?type=Invalid%20Device&message=The%20device%20ID%20${card_id}%20is%20not%20recognized.%20Please%20contact%20support.`);
+    }
+  } catch (err: any) {
+    // If it's a redirect error, rethrow it (required by Next.js)
+    if (err.digest?.startsWith('NEXT_REDIRECT')) throw err;
+    console.error('Activation page error:', err);
+  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col relative overflow-hidden selection:bg-indigo-100">

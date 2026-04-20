@@ -56,6 +56,11 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
   // QR Modal States
   const [qrCard, setQrCard] = useState<any>(null);
   const [isCopied, setIsCopied] = useState(false);
+
+  // Edit Modal States
+  const [editingCard, setEditingCard] = useState<any>(null);
+  const [editUrl, setEditUrl] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
   
   const router = useRouter();
 
@@ -112,6 +117,30 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
     navigator.clipboard.writeText(text);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleUpdateUrl = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`/api/cards/${editingCard._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          review_url: editUrl,
+          is_activated: true 
+        }),
+      });
+      if (res.ok) {
+        const updatedCard = await res.json();
+        setCards(cards.map(c => c._id === editingCard._id ? updatedCard : c));
+        setEditingCard(null);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const filteredCards = cards.filter(c => 
@@ -211,7 +240,60 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
         </div>
       )}
 
-      {/* Sidebar Desktop */}
+      {/* EDIT URL MODAL */}
+      {editingCard && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setEditingCard(null)} />
+          <div className="relative bg-white w-full max-w-lg rounded-[3rem] shadow-2xl p-8 sm:p-12 animate-in zoom-in-95 duration-300 border border-slate-100">
+            <button 
+              onClick={() => setEditingCard(null)}
+              className="absolute top-8 right-8 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all"
+            >
+              <X size={24} />
+            </button>
+            
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-blue-600">
+                <ExternalLink size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Update Destination</h3>
+              <p className="text-slate-500 font-bold text-sm tracking-wide uppercase mt-1">ID: {editingCard.card_id}</p>
+            </div>
+
+            <form onSubmit={handleUpdateUrl} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Google Review Link</label>
+                <input 
+                  type="url"
+                  required
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
+                  placeholder="https://g.page/r/your-id/review"
+                  className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl focus:outline-none focus:border-indigo-500 transition-all font-bold text-slate-900"
+                />
+                <p className="text-[10px] text-slate-400 font-bold px-2 italic">Changes take effect immediately for all scans.</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  type="submit" 
+                  disabled={isUpdating}
+                  className="flex-1 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 disabled:opacity-50"
+                >
+                  {isUpdating ? 'Updating...' : 'Save Changes'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setEditingCard(null)}
+                  className="px-8 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       <aside className="w-72 bg-white border-r border-slate-100 hidden lg:flex flex-col sticky top-0 h-screen">
         <div className="p-8">
           <Link href="/" className="flex items-center gap-2 mb-12">
@@ -433,6 +515,16 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
                           </td>
                           <td className="px-8 py-6">
                             <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={() => {
+                                  setEditingCard(card);
+                                  setEditUrl(card.review_url || '');
+                                }}
+                                className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                title="Edit URL"
+                              >
+                                <Settings size={20} />
+                              </button>
                               <button 
                                 onClick={() => setQrCard(card)}
                                 className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"

@@ -58,11 +58,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Review URL validation (Allow standard URLs for testing and flexibility)
-    const isUrl = review_url.startsWith('http://') || review_url.startsWith('https://');
-    if (!isUrl) {
+    // 3. Review URL validation (Stronger validation for Google Review links)
+    const isGoogleUrl = review_url.includes('google.com') || review_url.includes('g.page');
+    const isHttps = review_url.startsWith('https://');
+    
+    if (!isHttps || !isGoogleUrl) {
+      console.warn(`[Activation] Invalid URL attempt | Card: ${card_id} | URL: ${review_url} | IP: ${ip}`);
       return NextResponse.json(
-        { error: 'Invalid URL format. Please provide a full link starting with http:// or https://' },
+        { error: 'Invalid Google Review link. Must be a valid g.page or google.com/maps review link.' },
         { status: 400 }
       );
     }
@@ -70,6 +73,7 @@ export async function POST(req: NextRequest) {
     // 4. Find card in database
     const card = await Card.findOne({ card_id });
     if (!card) {
+      console.error(`[Activation] Card not found | ID: ${card_id} | IP: ${ip}`);
       return NextResponse.json(
         { error: 'Card ID not found. Only pre-generated cards can be activated.' },
         { status: 404 }
@@ -78,6 +82,7 @@ export async function POST(req: NextRequest) {
 
     // 5. Prevent duplicate activation
     if (card.is_activated) {
+      console.info(`[Activation] Attempted re-activation of already active card | ID: ${card_id} | IP: ${ip}`);
       return NextResponse.json(
         { error: 'This card is already activated.' },
         { status: 400 }
