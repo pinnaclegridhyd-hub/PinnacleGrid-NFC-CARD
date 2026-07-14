@@ -30,21 +30,19 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shadow-sm">
-            <Smartphone className="text-white w-5 h-5" />
-          </div>
+          <img src="/PINNACLE_GRID_LOGO.png" alt="Pinnacle Grid Logo" className="h-8 w-auto object-contain" />
           <span className="text-xl font-bold tracking-tight text-slate-900 font-inter">Pinnacle Grid</span>
         </Link>
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
-          <Link href="/#features" className="text-xs font-bold text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">Solutions</Link>
-          <Link href="/#pricing" className="text-xs font-bold text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">Partners</Link>
+          <a href="https://www.pinnaclegrid.com/services" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">Solutions</a>
+          <a href="https://www.pinnaclegrid.com/about" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">About Us</a>
           <div className="h-4 w-px bg-slate-200 mx-2" />
           <Link href="/login" className="text-xs font-bold text-slate-500 hover:text-primary uppercase tracking-widest transition-colors">Sign In</Link>
-          <Link href="/signup" className="px-5 py-2.5 bg-primary text-white font-bold rounded-lg hover:shadow-lg transition-all text-sm">
+          <a href="https://www.pinnaclegrid.com/contact" target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 bg-primary text-white font-bold rounded-lg hover:shadow-lg transition-all text-sm">
             Contact Sales
-          </Link>
+          </a>
         </div>
 
         {/* Mobile Menu Button */}
@@ -59,13 +57,13 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="absolute top-full left-0 right-0 bg-white border-b border-slate-200 p-8 flex flex-col gap-6 md:hidden animate-in slide-in-from-top-2 duration-200">
-          <Link href="/#features" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-slate-900">Solutions</Link>
-          <Link href="/#pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-slate-900">Partners</Link>
+          <a href="https://www.pinnaclegrid.com/services" target="_blank" rel="noopener noreferrer" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-slate-900">Solutions</a>
+          <a href="https://www.pinnaclegrid.com/about" target="_blank" rel="noopener noreferrer" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-slate-900">About Us</a>
           <hr />
           <Link href="/login" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-slate-900">Sign In</Link>
-          <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-4 bg-primary text-white font-bold rounded-xl text-center">
+          <a href="https://www.pinnaclegrid.com/contact" target="_blank" rel="noopener noreferrer" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-4 bg-primary text-white font-bold rounded-xl text-center">
             Contact Sales
-          </Link>
+          </a>
         </div>
       )}
     </nav>

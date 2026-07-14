@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Zap, Shield, BarChart3, Smartphone, Star, Globe, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Zap, Shield, BarChart3, Smartphone, Star, Globe, TrendingUp, CheckCircle2, MapPin, Mail, Phone, MessageCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
 export default function LandingPage() {
@@ -107,41 +107,92 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-6 pb-20 mt-20">
-        <div className="border-t border-slate-100 pt-20 flex flex-col md:flex-row justify-between items-start gap-12">
-          <div className="max-w-xs">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-                <Smartphone className="text-white w-5 h-5" />
-              </div>
+      <footer className="max-w-7xl mx-auto px-6 pb-12 mt-28 border-t border-slate-100 pt-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8">
+          {/* Logo & Description */}
+          <div className="lg:col-span-4 space-y-6">
+            <div className="flex items-center gap-3">
+              <img src="/PINNACLE_GRID_LOGO.png" alt="Pinnacle Grid Logo" className="h-9 w-auto object-contain" />
               <span className="text-xl font-bold tracking-tight text-slate-900 font-inter">Pinnacle Grid</span>
             </div>
-            <p className="text-slate-400 text-sm font-medium leading-relaxed">
-              Global infrastructure for NFC networking and identity management. Professional tools for the modern era.
+            <p className="text-slate-500 text-xs sm:text-sm font-medium leading-relaxed max-w-sm">
+              Global infrastructure for enterprise NFC networking, dynamic hardware activation, and real-time interaction logs. Professional tools for the modern connected enterprise.
             </p>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-16 md:gap-24">
+
+          {/* Quick Links */}
+          <div className="lg:col-span-4 grid grid-cols-2 gap-8">
             <div className="space-y-4">
-              <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Platform</p>
-              <ul className="space-y-2">
-                <li><Link href="#" className="text-sm font-medium text-slate-500 hover:text-primary transition-colors">Features</Link></li>
-                <li><Link href="#" className="text-sm font-medium text-slate-500 hover:text-primary transition-colors">Security</Link></li>
+              <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Platform Links</p>
+              <ul className="space-y-2.5">
+                <li><a href="https://www.pinnaclegrid.com/" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors">Home Page</a></li>
+                <li><a href="https://www.pinnaclegrid.com/services" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors">Our Services</a></li>
+                <li><a href="https://www.pinnaclegrid.com/about" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors">About Us</a></li>
               </ul>
             </div>
             <div className="space-y-4">
-              <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Company</p>
-              <ul className="space-y-2">
-                <li><Link href="#" className="text-sm font-medium text-slate-500 hover:text-primary transition-colors">Contact</Link></li>
-                <li><Link href="#" className="text-sm font-medium text-slate-500 hover:text-primary transition-colors">Privacy</Link></li>
+              <p className="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Access Portals</p>
+              <ul className="space-y-2.5">
+                <li><Link href="/login" className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors">Console Login</Link></li>
+                <li><Link href="/signup" className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors">New Registration</Link></li>
+                <li><a href="https://www.pinnaclegrid.com/contact" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-slate-500 hover:text-primary transition-colors">Get Support</a></li>
               </ul>
             </div>
           </div>
+
+          {/* Contact Details Card */}
+          <div className="lg:col-span-4 bg-slate-50 border border-slate-100 rounded-2xl p-6 space-y-5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quick Contact</p>
+            
+            <div className="space-y-4">
+              {/* Location */}
+              <div className="flex gap-3">
+                <MapPin className="text-primary w-4.5 h-4.5 shrink-0 mt-0.5" />
+                <div className="text-xs font-medium text-slate-600 leading-relaxed">
+                  <span className="block font-bold text-slate-900 mb-0.5">Our Location</span>
+                  8-3-945/A/11/101, Nagarjuna Nagar Colony,<br />
+                  Khairatabad, Hyderabad, 500073
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="flex items-center gap-3">
+                <Mail className="text-primary w-4.5 h-4.5 shrink-0" />
+                <div className="text-xs font-medium text-slate-600">
+                  <span className="block font-bold text-slate-900 mb-0.5">Email Us</span>
+                  <a href="mailto:info@pinnaclegrid.com" className="hover:underline hover:text-primary">info@pinnaclegrid.com</a>
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div className="flex items-center gap-3">
+                <Phone className="text-primary w-4.5 h-4.5 shrink-0" />
+                <div className="text-xs font-medium text-slate-600">
+                  <span className="block font-bold text-slate-900 mb-0.5">Call Us</span>
+                  <a href="tel:+919100305750" className="hover:underline hover:text-primary">+91 9100305750</a>
+                </div>
+              </div>
+            </div>
+
+            {/* WhatsApp CTA */}
+            <a 
+              href="https://wa.me/919100305750" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#25D366] text-white text-xs font-bold rounded-xl hover:shadow-lg transition-all hover:bg-[#20ba59]"
+            >
+              <MessageCircle size={14} className="fill-white" />
+              WhatsApp Now
+            </a>
+          </div>
         </div>
-        <div className="mt-20 pt-8 border-t border-slate-50 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">&copy; {new Date().getFullYear()} Pinnacle Grid Operations. All status nominal.</p>
+
+        {/* Lower Footer */}
+        <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">&copy; {new Date().getFullYear()} Pinnacle Grid Operations. All rights reserved.</p>
           <div className="flex items-center gap-4 text-slate-400">
-             <CheckCircle2 size={14} className="text-emerald-500" />
-             <span className="text-[10px] font-bold uppercase tracking-widest">Server: NCR-GLOBAL-01</span>
+             <CheckCircle2 size={13} className="text-emerald-500" />
+             <span className="text-[9px] font-bold uppercase tracking-widest">Server Status: Nominal</span>
           </div>
         </div>
       </footer>

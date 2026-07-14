@@ -482,9 +482,7 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
       <aside className="w-64 bg-white border-r border-slate-200 hidden lg:flex flex-col sticky top-0 h-screen">
         <div className="p-6">
           <Link href="/" className="flex items-center gap-3 mb-10 pl-2">
-            <div className="w-8 h-8 bg-primary rounded flex items-center justify-center shadow-sm">
-              <Smartphone className="text-white w-5 h-5" />
-            </div>
+            <img src="/PINNACLE_GRID_LOGO.png" alt="Pinnacle Grid Logo" className="h-8 w-auto object-contain" />
             <span className="text-xl font-bold tracking-tight text-slate-900">Pinnacle Grid</span>
           </Link>
           <NavItems />
@@ -507,9 +505,7 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
           <nav className="absolute top-0 left-0 bottom-0 w-72 bg-white shadow-xl p-6 flex flex-col animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between mb-10">
               <Link href="/" className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-                  <Smartphone className="text-white w-5 h-5" />
-                </div>
+                <img src="/PINNACLE_GRID_LOGO.png" alt="Pinnacle Grid Logo" className="h-8 w-auto object-contain" />
                 <span className="text-xl font-bold tracking-tight text-slate-900">Pinnacle Grid</span>
               </Link>
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-400">
@@ -581,7 +577,7 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
                 <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg p-1 animate-in fade-in slide-in-from-top-1 duration-150 z-50">
                   <div className="px-4 py-3 border-b border-slate-100 mb-1">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Administrator</p>
-                    <p className="text-xs font-medium text-slate-900 truncate">support@pinnaclegrid.com</p>
+                    <p className="text-xs font-medium text-slate-900 truncate">{user?.email || 'info@pinnaclegrid.com'}</p>
                   </div>
                   <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 text-xs font-semibold hover:bg-rose-50 rounded-lg transition-colors">
                     <LogOut className="w-3.5 h-3.5" />

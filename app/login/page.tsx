@@ -48,9 +48,7 @@ export default function LoginPage() {
       <div className="w-full max-w-[440px] relative">
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex items-center gap-3 mb-8 group">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-sm">
-              <ShieldCheck className="text-white w-6 h-6" />
-            </div>
+            <img src="/PINNACLE_GRID_LOGO.png" alt="Pinnacle Grid Logo" className="h-10 w-auto object-contain" />
             <span className="text-2xl font-bold tracking-tight text-slate-900 font-inter">Pinnacle Grid</span>
           </Link>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">System Login</h1>
