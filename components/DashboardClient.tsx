@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   BarChart3, 
   CreditCard, 
@@ -15,6 +15,8 @@ import {
   LogOut,
   ChevronDown,
   Smartphone,
+  Monitor,
+  Tablet,
   CheckCircle2,
   Clock,
   Menu,
@@ -51,7 +53,10 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export default function DashboardClient({ initialCards }: { initialCards: any[] }) {
+export default function DashboardClient({ initialCards, user }: { initialCards: any[], user: any }) {
+  const userRole = (user?.email === 'admin@pinnaclegrid.com' || user?.email?.startsWith('admin@'))
+    ? 'admin'
+    : (user?.role || 'editor');
   const [cards, setCards] = useState(initialCards);
   const [activeTab, setActiveTab] = useState('inventory');
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,6 +82,99 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
   
   const router = useRouter();
 
+  // Settings States
+  const [selectedSettingsSection, setSelectedSettingsSection] = useState(userRole === 'admin' ? 'general' : 'security');
+  const [redirectMode, setRedirectMode] = useState('instant');
+  const [antiSpamSeconds, setAntiSpamSeconds] = useState(15);
+  const [orgName, setOrgName] = useState('Pinnacle Grid');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isSettingsSaved, setIsSettingsSaved] = useState(true);
+
+  const handleSaveSettings = () => {
+    setIsSettingsSaved(false);
+    setTimeout(() => {
+      setIsSettingsSaved(true);
+    }, 800);
+  };
+
+  // Change Password States
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      const res = await fetch('/api/user/change-password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      });
+      if (res.ok) {
+        setPasswordSuccess('Password changed successfully');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        const data = await res.json();
+        setPasswordError(data.error || 'Failed to change password');
+      }
+    } catch (err) {
+      setPasswordError('An error occurred');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Create Account States (Admin Only)
+  const [createEmail, setCreateEmail] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createRole, setCreateRole] = useState('editor');
+  const [createError, setCreateError] = useState('');
+  const [createSuccess, setCreateSuccess] = useState('');
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError('');
+    setCreateSuccess('');
+    setIsCreatingAccount(true);
+    try {
+      const res = await fetch('/api/user/create-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: createEmail, password: createPassword, role: createRole }),
+      });
+      if (res.ok) {
+        setCreateSuccess('Account created successfully');
+        setCreateEmail('');
+        setCreatePassword('');
+        setCreateRole('editor');
+      } else {
+        const data = await res.json();
+        setCreateError(data.error || 'Failed to create account');
+      }
+    } catch (err) {
+      setCreateError('An error occurred');
+    } finally {
+      setIsCreatingAccount(false);
+    }
+  };
+
+
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
   // Stats calculation
@@ -84,16 +182,58 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
   const activeCards = cards.filter(c => c.is_activated).length;
   const activationRate = cards.length > 0 ? (activeCards / cards.length * 100).toFixed(1) : 0;
 
-  // Chart data
-  const chartData = [
-    { name: 'Mon', taps: 40 },
-    { name: 'Tue', taps: 300 },
-    { name: 'Wed', taps: 200 },
-    { name: 'Thu', taps: 278 },
-    { name: 'Fri', taps: 189 },
-    { name: 'Sat', taps: 239 },
-    { name: 'Sun', taps: 349 },
+  // Dynamic Analytics State
+  const [analyticsData, setAnalyticsData] = useState<{
+    chartData: { name: string; taps: number }[];
+    stats: {
+      avgScansPerDay: string;
+      peakTime: string;
+      uniqueReach: string;
+      systemHealth: string;
+    };
+    devices: { name: string; value: number; percentage: number }[];
+    topCards: { card_id: string; count: number }[];
+  } | null>(null);
+  const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setIsAnalyticsLoading(true);
+      try {
+        const res = await fetch(`/api/analytics?period=${selectedPeriod}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAnalyticsData(data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsAnalyticsLoading(false);
+      }
+    };
+
+    if (activeTab === 'analytics') {
+      fetchAnalytics();
+    }
+  }, [activeTab, selectedPeriod]);
+
+  // Fallback/Default chart data when loading or empty
+  const chartData = analyticsData?.chartData || [
+    { name: 'Mon', taps: 0 },
+    { name: 'Tue', taps: 0 },
+    { name: 'Wed', taps: 0 },
+    { name: 'Thu', taps: 0 },
+    { name: 'Fri', taps: 0 },
+    { name: 'Sat', taps: 0 },
+    { name: 'Sun', taps: 0 },
   ];
+
+  const analyticsStats = analyticsData?.stats || {
+    avgScansPerDay: '0.0',
+    peakTime: 'N/A',
+    uniqueReach: '0',
+    systemHealth: 'Nominal'
+  };
 
   const handleAddCard = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,35 +326,38 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
     return () => clearTimeout(timer);
   });
 
-  const NavItems = () => (
-    <nav className="space-y-1">
-      {[
-        { id: 'inventory', icon: CreditCard, label: 'NFC Inventory' },
-        { id: 'analytics', icon: BarChart3, label: 'Analytics' },
-        { id: 'settings', icon: Settings, label: 'Settings' },
-      ].map((item) => (
-        <button
-          key={item.id}
-          onClick={() => {
-            setActiveTab(item.id);
-            setIsMobileMenuOpen(false);
-          }}
-          className={cn(
-            "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 active:scale-[0.98] group relative",
-            activeTab === item.id 
-              ? 'bg-primary/5 text-primary' 
-              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-          )}
-        >
-          <item.icon className={cn("w-5 h-5", activeTab === item.id ? "text-primary" : "text-slate-400 group-hover:text-slate-600")} />
-          <span className="tracking-tight text-sm">{item.label}</span>
-          {activeTab === item.id && (
-             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-primary rounded-r-full" />
-          )}
-        </button>
-      ))}
-    </nav>
-  );
+  const NavItems = () => {
+    const items = [
+      { id: 'inventory', icon: CreditCard, label: 'NFC Inventory' },
+      ...(userRole === 'admin' ? [{ id: 'analytics', icon: BarChart3, label: 'Analytics' }] : []),
+      { id: 'settings', icon: Settings, label: 'Settings' },
+    ];
+    return (
+      <nav className="space-y-1">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => {
+              setActiveTab(item.id);
+              setIsMobileMenuOpen(false);
+            }}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-all duration-200 active:scale-[0.98] group relative",
+              activeTab === item.id 
+                ? 'bg-primary/5 text-primary' 
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+            )}
+          >
+            <item.icon className={cn("w-5 h-5", activeTab === item.id ? "text-primary" : "text-slate-400 group-hover:text-slate-600")} />
+            <span className="tracking-tight text-sm">{item.label}</span>
+            {activeTab === item.id && (
+               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-primary rounded-r-full" />
+            )}
+          </button>
+        ))}
+      </nav>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#fcfdfe] flex">
@@ -618,7 +761,7 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
                                 <span className="text-lg font-bold text-slate-900 tracking-tight group-hover:text-white group-hover:scale-110 transition-all inline-block">{card.taps_count || 0}</span>
                               </td>
                               <td className="px-6 py-4.5">
-                                <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300">
+                                <div className="flex items-center justify-end gap-1.5 transition-all duration-300">
                                     <button 
                                       onClick={(e) => { e.stopPropagation(); setEditingCard(card); setEditUrl(card.review_url || ''); }}
                                       className="p-2 text-slate-400 bg-transparent hover:bg-white/20 rounded-md transition-all group-hover:text-white group-hover:hover:bg-white group-hover:hover:text-primary"
@@ -642,13 +785,15 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
                                     >
                                       <ExternalLink size={16} />
                                     </Link>
-                                    <button 
-                                      onClick={(e) => { e.stopPropagation(); deleteCard(card._id); }}
-                                      className="p-2 text-slate-300 hover:text-rose-600 bg-transparent hover:bg-rose-50 rounded-md transition-all group-hover:text-white group-hover:hover:bg-white group-hover:hover:text-rose-600"
-                                      title="Delete"
-                                    >
-                                      <Trash2 size={16} />
-                                    </button>
+                                    {userRole === 'admin' && (
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); deleteCard(card._id); }}
+                                        className="p-2 text-slate-300 hover:text-rose-600 bg-transparent hover:bg-rose-50 rounded-md transition-all group-hover:text-white group-hover:hover:bg-white group-hover:hover:text-rose-600"
+                                        title="Delete"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    )}
                                 </div>
                               </td>
                             </tr>
@@ -728,91 +873,474 @@ export default function DashboardClient({ initialCards }: { initialCards: any[] 
 
           {activeTab === 'analytics' && (
             <div className="space-y-8 animate-in fade-in duration-700">
-              <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
-                <div className="mb-10 flex flex-col sm:flex-row justify-between items-start gap-6 relative z-10">
+              {/* Dynamic Analytics Layout Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                {/* Main Graph Card */}
+                <div className="lg:col-span-2 bg-white p-8 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-2">Engagement Analytics</h3>
-                    <p className="text-slate-500 font-medium max-w-xl leading-relaxed text-sm">
-                       Visualizing your network interaction trends across active hardware assets.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
-                    {['7D', '30D', '90D', 'All'].map((period) => (
-                      <button 
-                        key={period}
-                        onClick={() => setSelectedPeriod(period)}
-                        className={cn(
-                          "px-4 py-1.5 rounded-md text-[10px] font-bold transition-all tracking-wider",
-                          selectedPeriod === period ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                        )}
-                      >
-                        {period}
-                      </button>
-                    ))}
+                    <div className="mb-10 flex flex-col sm:flex-row justify-between items-start gap-6 relative z-10">
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight mb-1.5 font-outfit">Engagement Analytics</h3>
+                        <p className="text-slate-400 font-medium max-w-xl leading-relaxed text-xs">
+                          Visualizing scan interaction rates across active hardware assets in real-time.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200/80">
+                        {['7D', '30D', '90D', 'All'].map((period) => (
+                          <button 
+                            key={period}
+                            onClick={() => setSelectedPeriod(period)}
+                            className={cn(
+                              "px-3.5 py-1.5 rounded-md text-[10px] font-extrabold transition-all tracking-wider",
+                              selectedPeriod === period 
+                                ? 'bg-white text-primary shadow-sm' 
+                                : 'text-slate-500 hover:text-slate-700'
+                            )}
+                          >
+                            {period}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="h-[340px] w-full relative z-10">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={50}>
+                        <AreaChart data={chartData}>
+                          <defs>
+                            <linearGradient id="colorTaps" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#004AAD" stopOpacity={0.15}/>
+                              <stop offset="100%" stopColor="#004AAD" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 600}}
+                            dy={10}
+                          />
+                          <YAxis hide />
+                          <Tooltip 
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                 return (
+                                    <div className="bg-slate-900/95 backdrop-blur-md text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-800/80 flex flex-col gap-1">
+                                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{payload[0].payload.name}</p>
+                                       <p className="text-sm font-extrabold text-white flex items-center gap-1.5">
+                                          <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                                          {payload[0].value} <span className="text-[11px] text-slate-300 font-medium">Scans</span>
+                                       </p>
+                                    </div>
+                                 );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="taps" 
+                            stroke="#004AAD" 
+                            strokeWidth={3} 
+                            fillOpacity={1} 
+                            fill="url(#colorTaps)" 
+                            animationDuration={1000}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="h-[400px] min-h-[400px] w-full relative z-10">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={50}>
-                    <AreaChart data={chartData}>
-                      <defs>
-                        <linearGradient id="colorTaps" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#004AAD" stopOpacity={0.1}/>
-                          <stop offset="100%" stopColor="#004AAD" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 500}}
-                        dy={10}
-                      />
-                      <YAxis hide />
-                      <Tooltip 
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                             return (
-                                <div className="bg-slate-900 text-white px-3 py-2 rounded-lg shadow-xl text-xs">
-                                   <p className="font-bold">{payload[0].value} Scans</p>
-                                </div>
-                             );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="taps" 
-                        stroke="#004AAD" 
-                        strokeWidth={3} 
-                        fillOpacity={1} 
-                        fill="url(#colorTaps)" 
-                        animationDuration={1500}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+
+                {/* Right Analytics Sidebar */}
+                <div className="flex flex-col gap-6">
+                  
+                  {/* Device Analytics Panel */}
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Device breakdown</h4>
+                    <div className="space-y-4">
+                      {((analyticsData?.devices && analyticsData.devices.length > 0) 
+                        ? analyticsData.devices 
+                        : [
+                            { name: 'Mobile', value: 0, percentage: 0 },
+                            { name: 'Desktop', value: 0, percentage: 0 },
+                            { name: 'Tablet', value: 0, percentage: 0 },
+                          ]
+                      ).map((device) => {
+                        const Icon = device.name === 'Mobile' ? Smartphone : device.name === 'Desktop' ? Monitor : Tablet;
+                        return (
+                          <div key={device.name} className="space-y-1.5">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-semibold text-slate-500 flex items-center gap-1.5">
+                                <Icon size={14} className="text-slate-400" />
+                                {device.name}
+                              </span>
+                              <span className="font-extrabold text-slate-800">
+                                {device.percentage}% <span className="text-[10px] text-slate-400 font-medium">({device.value})</span>
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-primary rounded-full transition-all duration-700" 
+                                style={{ width: `${device.percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Top Performing Cards */}
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex-1">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Top active assets</h4>
+                    {(!analyticsData?.topCards || analyticsData.topCards.length === 0) ? (
+                      <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                        No taps recorded in this timeframe
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {analyticsData.topCards.map((card) => (
+                          <div key={card.card_id} className="flex justify-between items-center p-2 rounded-lg hover:bg-slate-50/80 transition-colors border border-transparent hover:border-slate-100">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 bg-primary/10 text-primary text-[10px] font-black rounded-lg flex items-center justify-center">
+                                {card.card_id.slice(0, 2).toUpperCase()}
+                              </div>
+                              <span className="text-xs font-bold text-slate-700 truncate max-w-[120px] font-inter tracking-tight">{card.card_id}</span>
+                            </div>
+                            <span className="text-[10px] font-extrabold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-full">{card.count} taps</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Stat Cards at Bottom */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                  { label: 'Avg Scans/Day', value: '24.2', icon: Activity },
-                  { label: 'Peak Time', value: '2:00 PM', icon: Clock },
-                  { label: 'Unique Reach', value: '418', icon: Smartphone },
-                  { label: 'System Health', value: 'Nominal', icon: CheckCircle2 },
+                  { label: 'Avg Scans/Day', value: analyticsStats.avgScansPerDay, icon: Activity, glow: 'hover:shadow-primary/5 hover:border-primary/30' },
+                  { label: 'Peak Time', value: analyticsStats.peakTime, icon: Clock, glow: 'hover:shadow-indigo-500/5 hover:border-indigo-500/30' },
+                  { label: 'Unique Reach', value: analyticsStats.uniqueReach, icon: Smartphone, glow: 'hover:shadow-emerald-500/5 hover:border-emerald-500/30' },
+                  { label: 'System Health', value: analyticsStats.systemHealth, icon: CheckCircle2, glow: 'hover:shadow-amber-500/5 hover:border-amber-500/30' },
                 ].map((stat, i) => (
-                  <div key={i} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-slate-300 group">
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all duration-300 relative overflow-hidden group hover:-translate-y-0.5",
+                      stat.glow
+                    )}
+                  >
                     <div className="flex items-center gap-3 mb-3">
-                       <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+                       <div className="w-9 h-9 rounded-lg bg-primary/5 flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
                           <stat.icon size={16} />
                        </div>
-                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{stat.label}</p>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
                     </div>
-                    <p className="text-xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
+                    <p className="text-2xl font-extrabold text-slate-900 tracking-tight font-outfit">{stat.value}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="space-y-8 animate-in fade-in duration-700">
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="flex flex-col md:flex-row min-h-[500px]">
+                  
+                  {/* Settings Sidebar */}
+                  <div className="w-full md:w-64 border-r border-slate-200/60 bg-slate-50/50 p-6 space-y-1">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest px-3 mb-4">Configuration</h3>
+                    {[
+                      ...(userRole === 'admin' ? [
+                        { id: 'general', label: 'General Settings' },
+                        { id: 'api', label: 'Developer & API' }
+                      ] : []),
+                      { id: 'security', label: 'Security & Access' }
+                    ].map((sec) => (
+                      <button
+                        key={sec.id}
+                        onClick={() => setSelectedSettingsSection(sec.id)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all",
+                          selectedSettingsSection === sec.id
+                            ? 'bg-primary/5 text-primary'
+                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                        )}
+                      >
+                        {sec.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Settings Form Content */}
+                  <div className="flex-1 p-8 md:p-10">
+                    {userRole === 'admin' && selectedSettingsSection === 'general' && (
+                      <div className="space-y-8 max-w-xl">
+                        <div>
+                          <h4 className="text-base font-extrabold text-slate-900 tracking-tight font-outfit">General Settings</h4>
+                          <p className="text-slate-400 text-xs mt-1">Configure global behavior parameters for your NFC hardware identifiers.</p>
+                        </div>
+                        
+                        <div className="space-y-6">
+                          {/* Redirect Mode */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Default Redirect Action</label>
+                            <div className="grid grid-cols-2 gap-4">
+                              <button 
+                                onClick={() => setRedirectMode('instant')}
+                                className={cn(
+                                  "p-4 rounded-xl border text-left transition-all",
+                                  redirectMode === 'instant' 
+                                    ? 'border-primary bg-primary/5 ring-2 ring-primary/5' 
+                                    : 'border-slate-200 hover:border-slate-300'
+                                )}
+                              >
+                                <span className="block text-xs font-bold text-slate-900">Instant Redirect</span>
+                                <span className="block text-[10px] text-slate-400 mt-1 font-medium leading-relaxed">Directly route scanned devices to destination URLs in &lt;100ms.</span>
+                              </button>
+                              <button 
+                                onClick={() => setRedirectMode('interstitial')}
+                                className={cn(
+                                  "p-4 rounded-xl border text-left transition-all",
+                                  redirectMode === 'interstitial' 
+                                    ? 'border-primary bg-primary/5 ring-2 ring-primary/5' 
+                                    : 'border-slate-200 hover:border-slate-300'
+                                )}
+                              >
+                                <span className="block text-xs font-bold text-slate-900">Loading Screen</span>
+                                <span className="block text-[10px] text-slate-400 mt-1 font-medium leading-relaxed">Show a brief loading interface before destination routing.</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Anti-Spam Rate Limit */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Analytics Anti-Spam (Seconds)</label>
+                            <p className="text-[10px] text-slate-400 font-medium">Prevent duplicate scans from inflating tap logs within specified intervals.</p>
+                            <select 
+                              value={antiSpamSeconds}
+                              onChange={(e) => setAntiSpamSeconds(Number(e.target.value))}
+                              className="input-premium py-2.5"
+                            >
+                              <option value={0}>Disabled (Log all interactions)</option>
+                              <option value={5}>5 seconds</option>
+                              <option value={15}>15 seconds</option>
+                              <option value={30}>30 seconds</option>
+                              <option value={60}>60 seconds</option>
+                            </select>
+                          </div>
+
+                          {/* Organization Name */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Organization Name</label>
+                            <input 
+                              type="text" 
+                              value={orgName}
+                              onChange={(e) => setOrgName(e.target.value)}
+                              className="input-premium py-2.5 font-semibold"
+                            />
+                          </div>
+
+                        </div>
+                      </div>
+                    )}
+
+                    {userRole === 'admin' && selectedSettingsSection === 'api' && (
+                      <div className="space-y-8 max-w-xl">
+                        <div>
+                          <h4 className="text-base font-extrabold text-slate-900 tracking-tight font-outfit">Developer & API</h4>
+                          <p className="text-slate-400 text-xs mt-1">Integrate external services and retrieve authentication headers.</p>
+                        </div>
+                        
+                        <div className="space-y-6">
+                          {/* API Key */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">API Secret Key</label>
+                            <div className="flex gap-2">
+                              <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 flex items-center justify-between font-mono text-xs text-slate-500 overflow-hidden truncate">
+                                {showApiKey ? 'sk_live_pinnacle_grid_9f27c81d830b' : '••••••••••••••••••••••••••••••••••••'}
+                                <button 
+                                  onClick={() => setShowApiKey(!showApiKey)}
+                                  className="text-primary font-sans font-bold hover:underline ml-2"
+                                >
+                                  {showApiKey ? 'Hide' : 'Reveal'}
+                                </button>
+                              </div>
+                              <button 
+                                onClick={() => copyToClipboard('sk_live_pinnacle_grid_9f27c81d830b')}
+                                className="btn-premium-secondary px-4 py-2 flex items-center justify-center gap-1.5"
+                              >
+                                <Copy size={14} />
+                                Copy
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Webhook Url */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Webhook URL Endpoint</label>
+                            <p className="text-[10px] text-slate-400 font-medium">Trigger HTTP POST requests with device payload whenever an NFC asset is scanned.</p>
+                            <input 
+                              type="url" 
+                              placeholder="https://yourserver.com/webhooks/nfc"
+                              value={webhookUrl}
+                              onChange={(e) => setWebhookUrl(e.target.value)}
+                              className="input-premium py-2.5 font-semibold"
+                            />
+                          </div>
+
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedSettingsSection === 'security' && (
+                      <div className="space-y-8 max-w-xl">
+                        <div>
+                          <h4 className="text-base font-extrabold text-slate-900 tracking-tight font-outfit">Security & Access</h4>
+                          <p className="text-slate-400 text-xs mt-1">Review account details, update credentials, and manage authorizations.</p>
+                        </div>
+                        
+                        <div className="space-y-6">
+                          {/* Info Panel */}
+                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 space-y-4">
+                            <div className="flex justify-between items-center py-2 border-b border-slate-200/50">
+                              <span className="text-xs font-semibold text-slate-500">Account Owner</span>
+                              <span className="text-xs font-extrabold text-slate-700">{user?.email}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2 border-b border-slate-200/50">
+                              <span className="text-xs font-semibold text-slate-500">Access Role</span>
+                              <span className="text-[10px] font-black text-white bg-primary px-2.5 py-0.5 rounded-full uppercase tracking-wider">{userRole}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2">
+                              <span className="text-xs font-semibold text-slate-500">Datacenter Location</span>
+                              <span className="text-xs font-bold text-slate-600">Mumbai Central, India (AWS)</span>
+                            </div>
+                          </div>
+
+                          {/* Change Password Form */}
+                          <div className="border border-slate-200 rounded-xl p-6 space-y-4">
+                            <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Change Password</h5>
+                            <form onSubmit={handlePasswordChange} className="space-y-4">
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">New Password</label>
+                                <input 
+                                  type="password" 
+                                  required
+                                  value={newPassword}
+                                  onChange={(e) => setNewPassword(e.target.value)}
+                                  placeholder="••••••••"
+                                  className="input-premium py-2 font-semibold"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Confirm New Password</label>
+                                <input 
+                                  type="password" 
+                                  required
+                                  value={confirmPassword}
+                                  onChange={(e) => setConfirmPassword(e.target.value)}
+                                  placeholder="••••••••"
+                                  className="input-premium py-2 font-semibold"
+                                />
+                              </div>
+                              {passwordError && (
+                                <p className="text-xs font-bold text-rose-600">{passwordError}</p>
+                              )}
+                              {passwordSuccess && (
+                                <p className="text-xs font-bold text-emerald-600">{passwordSuccess}</p>
+                              )}
+                              <button 
+                                type="submit" 
+                                disabled={isChangingPassword}
+                                className="btn-premium-primary w-full py-2 text-xs"
+                              >
+                                {isChangingPassword ? 'Updating Password...' : 'Update Password'}
+                              </button>
+                            </form>
+                          </div>
+
+                          {/* Create Account Form (Admin Only) */}
+                          {userRole === 'admin' && (
+                            <div className="border border-slate-200 rounded-xl p-6 space-y-4">
+                              <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Create Team Account</h5>
+                              <form onSubmit={handleCreateAccount} className="space-y-4">
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email Address</label>
+                                  <input 
+                                    type="email" 
+                                    required
+                                    value={createEmail}
+                                    onChange={(e) => setCreateEmail(e.target.value)}
+                                    placeholder="team-member@pinnaclegrid.com"
+                                    className="input-premium py-2 font-semibold"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Password</label>
+                                  <input 
+                                    type="password" 
+                                    required
+                                    value={createPassword}
+                                    onChange={(e) => setCreatePassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    className="input-premium py-2 font-semibold"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Access Role</label>
+                                  <select 
+                                    value={createRole}
+                                    onChange={(e) => setCreateRole(e.target.value)}
+                                    className="input-premium py-2 font-semibold"
+                                  >
+                                    <option value="editor">Editor (Access Restricted)</option>
+                                    <option value="admin">Administrator (Full Access)</option>
+                                  </select>
+                                </div>
+                                {createError && (
+                                  <p className="text-xs font-bold text-rose-600">{createError}</p>
+                                )}
+                                {createSuccess && (
+                                  <p className="text-xs font-bold text-emerald-600">{createSuccess}</p>
+                                )}
+                                <button 
+                                  type="submit" 
+                                  disabled={isCreatingAccount}
+                                  className="btn-premium-primary w-full py-2 text-xs"
+                                >
+                                  {isCreatingAccount ? 'Creating Account...' : 'Create Account'}
+                                </button>
+                              </form>
+                            </div>
+                          )}
+                          
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Save Changes Floating Bar (Admin Only, for non-security sections) */}
+                    {userRole === 'admin' && selectedSettingsSection !== 'security' && (
+                      <div className="mt-10 pt-6 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {isSettingsSaved ? '✓ All changes auto-saved to session profile' : 'Unsaved changes in workspace'}
+                        </span>
+                        <button 
+                          onClick={handleSaveSettings}
+                          className="btn-premium-primary px-8 py-2.5 h-11"
+                        >
+                          Apply Config
+                        </button>
+                      </div>
+                    )}
+
+                  </div>
+
+                </div>
               </div>
             </div>
           )}

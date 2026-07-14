@@ -20,6 +20,6 @@ export default async function DashboardPage() {
   const serializedCards = JSON.parse(JSON.stringify(cards));
 
   return (
-    <DashboardClient initialCards={serializedCards} />
+    <DashboardClient initialCards={serializedCards} user={user} />
   );
 }

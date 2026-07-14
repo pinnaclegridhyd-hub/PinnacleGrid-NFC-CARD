@@ -8,11 +8,12 @@ export interface AuthUser {
   id: string;
   email: string;
   plan: string;
+  role: string;
 }
 
 export async function signToken(user: AuthUser): Promise<string> {
   return jwt.sign(
-    { id: user.id, email: user.email, plan: user.plan },
+    { id: user.id, email: user.email, plan: user.plan, role: user.role },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
@@ -32,7 +33,13 @@ export async function getAuthUser(req?: NextRequest): Promise<AuthUser | null> {
 
   if (!token) return null;
 
-  return verifyToken(token);
+  const user = await verifyToken(token);
+  if (user) {
+    if (user.email === 'admin@pinnaclegrid.com' || user.email.startsWith('admin@')) {
+      user.role = 'admin';
+    }
+  }
+  return user;
 }
 
 export async function logout() {

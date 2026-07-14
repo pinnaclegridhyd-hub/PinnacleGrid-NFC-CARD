@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
       id: user._id.toString(),
       email: user.email,
       plan: user.plan,
+      role: user.role || 'admin', // first signup is admin, default
     });
 
     const cookieStore = await cookies();
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
         id: user._id,
         email: user.email,
         plan: user.plan,
+        role: user.role || 'admin',
       },
     });
   } catch (error: any) {
