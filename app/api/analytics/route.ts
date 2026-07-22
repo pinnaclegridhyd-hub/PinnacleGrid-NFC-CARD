@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Analytics from '@/lib/models/Analytics';
+import Card from '@/lib/models/Card';
 import { getAuthUser } from '@/lib/auth';
 
 function getDeviceType(ua: string = '') {
@@ -154,10 +155,25 @@ export async function GET(req: NextRequest) {
     ];
 
     // Format top active cards
-    const topCards = Object.entries(cardCounts)
+    const rawTopCards = Object.entries(cardCounts)
       .map(([card_id, count]) => ({ card_id, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
+
+    // Fetch card details to resolve client metadata
+    const topCardIds = rawTopCards.map(tc => tc.card_id);
+    const cardDocs = await Card.find({ card_id: { $in: topCardIds } }).lean();
+    const cardDocMap = new Map(cardDocs.map(c => [c.card_id, c]));
+
+    const topCards = rawTopCards.map(tc => {
+      const doc: any = cardDocMap.get(tc.card_id);
+      return {
+        card_id: tc.card_id,
+        count: tc.count,
+        client_name: doc?.client_name || '',
+        client_company: doc?.client_company || '',
+      };
+    });
 
     return NextResponse.json({
       chartData,

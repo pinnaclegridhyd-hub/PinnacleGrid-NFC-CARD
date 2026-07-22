@@ -29,7 +29,14 @@ export async function POST(req: NextRequest) {
     }
 
     await dbConnect();
-    const { card_id } = await req.json();
+    const { 
+      card_id,
+      client_name,
+      client_company,
+      client_phone,
+      client_email,
+      client_address
+    } = await req.json();
 
     if (!card_id) {
       return NextResponse.json({ error: 'Card ID is required' }, { status: 400 });
@@ -40,7 +47,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Card ID already exists' }, { status: 400 });
     }
 
-    const card = await Card.create({ card_id });
+    const card = await Card.create({ 
+      card_id,
+      client_name,
+      client_company,
+      client_phone,
+      client_email,
+      client_address
+    });
     return NextResponse.json(card, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

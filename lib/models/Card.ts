@@ -20,6 +20,26 @@ const CardSchema = new Schema({
     type: Number,
     default: 0,
   },
+  client_name: {
+    type: String,
+    default: '',
+  },
+  client_company: {
+    type: String,
+    default: '',
+  },
+  client_phone: {
+    type: String,
+    default: '',
+  },
+  client_email: {
+    type: String,
+    default: '',
+  },
+  client_address: {
+    type: String,
+    default: '',
+  },
   created_at: {
     type: Date,
     default: Date.now,
@@ -34,6 +54,11 @@ CardSchema.pre('save', function (this: any) {
   this.updated_at = new Date();
 });
 
-const Card = models.Card || model('Card', CardSchema);
+// Clear cached model in development to force schema updates on hot-reload
+if (process.env.NODE_ENV === 'development') {
+  delete (mongoose.models as any).Card;
+}
+
+const Card = mongoose.models.Card || mongoose.model('Card', CardSchema);
 
 export default Card;

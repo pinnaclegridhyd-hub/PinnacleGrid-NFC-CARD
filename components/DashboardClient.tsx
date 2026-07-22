@@ -28,7 +28,8 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  Zap
+  Zap,
+  FileText
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -72,6 +73,11 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
 
   const [editingCard, setEditingCard] = useState<any>(null);
   const [editUrl, setEditUrl] = useState('');
+  const [editClientName, setEditClientName] = useState('');
+  const [editClientCompany, setEditClientCompany] = useState('');
+  const [editClientPhone, setEditClientPhone] = useState('');
+  const [editClientEmail, setEditClientEmail] = useState('');
+  const [editClientAddress, setEditClientAddress] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Pagination & Filtering States
@@ -192,9 +198,394 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
       systemHealth: string;
     };
     devices: { name: string; value: number; percentage: number }[];
-    topCards: { card_id: string; count: number }[];
+    topCards: { card_id: string; count: number; client_name?: string; client_company?: string }[];
   } | null>(null);
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false);
+
+  // PI Generator States
+  const [piInvoiceNo, setPiInvoiceNo] = useState(() => {
+    const year = new Date().getFullYear().toString().slice(-2);
+    const nextYear = (new Date().getFullYear() + 1).toString().slice(-2);
+    const rand = Math.floor(100 + Math.random() * 900);
+    return `PG/${year}-${nextYear}/${rand}`;
+  });
+  const [piDate, setPiDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [piProjectStart, setPiProjectStart] = useState(() => new Date().toISOString().split('T')[0]);
+  const [piProjectEnd, setPiProjectEnd] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [piClientId, setPiClientId] = useState('');
+  const [piClientName, setPiClientName] = useState('');
+  const [piClientEmail, setPiClientEmail] = useState('');
+  const [piClientMobile, setPiClientMobile] = useState('');
+  const [piClientAddress, setPiClientAddress] = useState('');
+  
+  const [piProducts, setPiProducts] = useState<Array<{
+    description: string;
+    hsnSac: string;
+    quantity: number;
+    rate: number;
+  }>>([
+    { description: 'IT Consulting & Cloud Infrastructure Services', hsnSac: '998311', quantity: 1, rate: 45000 },
+    { description: 'Social Media Marketing & Brand Strategy (1 Month)', hsnSac: '998371', quantity: 1, rate: 35000 }
+  ]);
+  const piTotalAmount = piProducts.reduce((sum, p) => sum + (p.quantity * p.rate || 0), 0);
+  const [isPiSubmitting, setIsPiSubmitting] = useState(false);
+  const [piSubmitMessage, setPiSubmitMessage] = useState('');
+  const [piSubmitStatus, setPiSubmitStatus] = useState<'success' | 'error' | ''>('');
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  const handleAddPiProduct = () => {
+    setPiProducts([...piProducts, { description: '', hsnSac: '', quantity: 1, rate: 0 }]);
+  };
+
+  const handleRemovePiProduct = (index: number) => {
+    setPiProducts(piProducts.filter((_, i) => i !== index));
+  };
+
+  const handleUpdatePiProduct = (index: number, field: string, value: any) => {
+    const updated = piProducts.map((p, i) => {
+      if (i === index) {
+        return { ...p, [field]: value };
+      }
+      return p;
+    });
+    setPiProducts(updated);
+  };
+
+  const numberToRupeesWords = (num: number): string => {
+    const a = [
+      '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+      'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+    ];
+    const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    if (num === 0) return 'Zero';
+
+    const g = (n: number): string => {
+      if (n < 20) return a[n];
+      const digit = n % 10;
+      return b[Math.floor(n / 10)] + (digit ? ' ' + a[digit] : '');
+    };
+
+    const convert = (n: number): string => {
+      if (n < 100) return g(n);
+      if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred' + (n % 100 !== 0 ? ' and ' + convert(n % 100) : '');
+      if (n < 100000) return convert(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 !== 0 ? ' ' + convert(n % 1000) : '');
+      if (n < 10000000) return convert(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 !== 0 ? ' ' + convert(n % 100000) : '');
+      return convert(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 !== 0 ? ' ' + convert(n % 10000000) : '');
+    };
+
+    const parts = num.toFixed(2).split('.');
+    const whole = parseInt(parts[0]);
+    const decimal = parseInt(parts[1]);
+
+    let str = convert(whole) + ' Rupees';
+    if (decimal > 0) {
+      str += ' and ' + g(decimal) + ' Paise';
+    }
+    return str + ' Only';
+  };
+
+  const handleSaveAndDownloadPi = async () => {
+    if (!piClientName || !piClientEmail || !piClientMobile || !piClientId) {
+      alert('Please fill all client details and Asset/Client ID');
+      return;
+    }
+    setIsPiSubmitting(true);
+    setPiSubmitStatus('');
+    setPiSubmitMessage('');
+    
+    try {
+      const element = document.getElementById('printable-pi-invoice');
+      if (!element) {
+        throw new Error('Invoice element not found');
+      }
+
+      if (!(window as any).html2pdf) {
+        alert('PDF library is still loading. Please try again in a few seconds.');
+        setIsPiSubmitting(false);
+        return;
+      }
+
+      // Create an iframe to isolate the element from Tailwind CSS v4 stylesheets containing "oklch" or "lab" colors
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.width = '800px';
+      iframe.style.height = '1050px';
+      iframe.style.top = '-10000px';
+      iframe.style.left = '-10000px';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) {
+        throw new Error('Could not create isolated print context');
+      }
+
+      const logoUrl = window.location.origin + '/PINNACLE_GRID_LOGO.png';
+
+      // Write standard HTML layout to the iframe with inline styling to guarantee a 1-page premium look
+      iframeDoc.write(`
+        <html>
+          <head>
+            <title>Proforma Invoice</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                color: #000000;
+                margin: 0;
+                padding: 0;
+                background-color: #ffffff;
+                -webkit-print-color-adjust: exact;
+              }
+              .invoice-container {
+                width: 740px;
+                margin: 0 auto;
+                padding: 20px;
+                box-sizing: border-box;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+              }
+              .text-navy {
+                color: #1e3a8a;
+              }
+              .bg-navy {
+                background-color: #1e3a8a;
+              }
+              .border-cell {
+                border: 1px solid #cbd5e1;
+                padding: 8px 10px;
+              }
+            </style>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+          </head>
+          <body>
+            <div id="print-content" class="invoice-container">
+              <!-- Top Header -->
+              <table style="width: 100%; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 18px;">
+                <tr>
+                  <td style="vertical-align: top;">
+                    <img src="${logoUrl}" style="height: 46px; width: auto; object-fit: contain;" />
+                    <div style="font-size: 14px; font-weight: 800; color: #1e3a8a; margin-top: 4px;">Pinnacle Grid Skill Innovations LLP</div>
+                    <div style="font-size: 9px; font-weight: bold; font-style: italic; color: #1e3a8a; margin-top: 2px;">Make Your Brand InExorable</div>
+                  </td>
+                  <td style="text-align: right; font-size: 10px; color: #000000; line-height: 1.4; vertical-align: top;">
+                    <strong style="color: #1e3a8a;">Pinnacle Grid Skill Innovations LLP</strong><br/>
+                    Hyderabad, Telangana, India<br/>
+                    Contact: +91 9100305750<br/>
+                    Email: <a href="mailto:info@pinnaclegrid.com" style="color: #1e3a8a; text-decoration: none; font-weight: bold;">info@pinnaclegrid.com</a> | website: <a href="https://pinnaclegrid.com" target="_blank" style="color: #1e3a8a; text-decoration: none; font-weight: bold;">pinnaclegrid.com</a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Title -->
+              <div style="text-align: center; margin: 18px 0;">
+                <span style="font-size: 16px; font-weight: 900; letter-spacing: 0.1em; color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 2px; text-transform: uppercase;">PROFORMA INVOICE</span>
+              </div>
+
+              <!-- Details Block -->
+              <table style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 18px; background-color: #f8fafc; font-size: 11px; color: #000000;">
+                <tr>
+                  <td style="width: 50%; padding: 10px; vertical-align: top; border-right: 1px solid #cbd5e1; line-height: 1.6;">
+                    <strong style="font-size: 9px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Invoice Details</strong>
+                    <span style="color: #000000;">Invoice No:</span> <span style="color: #000000;">${piInvoiceNo}</span><br/>
+                    <span style="color: #000000;">Invoice Date:</span> <span style="color: #000000;">${piDate}</span>
+                  </td>
+                  <td style="width: 50%; padding: 10px; vertical-align: top; line-height: 1.6;">
+                    <strong style="font-size: 9px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px;">Reference Info</strong>
+                    <span style="color: #000000;">Place of Supply:</span> <span style="color: #000000;">${piClientAddress || 'N/A'}</span><br/>
+                    <span style="color: #000000;">Client / Ref ID:</span> <span style="color: #000000;">${piClientId || 'N/A'}</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Customer Details -->
+              <table style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 18px; background-color: #ffffff; font-size: 11px; color: #000000;">
+                <tr>
+                  <td style="padding: 10px; vertical-align: top; width: 65%;">
+                    <strong style="font-size: 9px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 6px;">Client Details & Billing Composition</strong>
+                    <strong style="font-size: 12px; color: #000000; display: block; margin-bottom: 4px;">${piClientName || 'Client Name'}</strong>
+                    <div style="color: #000000; margin-top: 4px; white-space: pre-wrap; line-height: 1.4;">${piClientAddress || 'Billing Address...'}</div>
+                  </td>
+                  <td style="padding: 10px; vertical-align: top; text-align: right; color: #000000; line-height: 1.6; width: 35%;">
+                    <span>Email: <a href="mailto:${piClientEmail}" style="color: #1e3a8a; text-decoration: none; font-weight: bold;">${piClientEmail || 'client@email.com'}</a></span><br/>
+                    <span>Mobile: <span style="color: #000000;">${piClientMobile || '+91 99999 99999'}</span></span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Products Table -->
+              <table style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; margin-bottom: 18px; font-size: 11px; color: #000000;">
+                <thead>
+                  <tr style="background-color: #f1f5f9; color: #000000; font-size: 9px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.05em; text-align: left; border-bottom: 1px solid #cbd5e1;">
+                    <th style="padding: 8px 12px; border-right: 1px solid #cbd5e1; color: #1e3a8a;">Service / Product Description</th>
+                    <th style="padding: 8px 12px; text-align: center; width: 80px; border-right: 1px solid #cbd5e1; color: #1e3a8a;">HSN/SAC</th>
+                    <th style="padding: 8px 12px; text-align: center; width: 60px; border-right: 1px solid #cbd5e1; color: #1e3a8a;">Qty</th>
+                    <th style="padding: 8px 12px; text-align: right; width: 100px; border-right: 1px solid #cbd5e1; color: #1e3a8a;">Rate (₹)</th>
+                    <th style="padding: 8px 12px; text-align: right; width: 110px; color: #1e3a8a;">Total (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${piProducts.map((p, idx) => `
+                    <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}; border-top: 1px solid #cbd5e1;">
+                      <td style="padding: 10px 12px; font-weight: bold; color: #000000; border-right: 1px solid #cbd5e1;">${p.description || 'Service Description'}</td>
+                      <td style="padding: 10px 12px; text-align: center; font-family: monospace; color: #000000; border-right: 1px solid #cbd5e1;">${p.hsnSac || '-'}</td>
+                      <td style="padding: 10px 12px; text-align: center; color: #000000; border-right: 1px solid #cbd5e1;">${p.quantity}</td>
+                      <td style="padding: 10px 12px; text-align: right; font-weight: bold; color: #000000; border-right: 1px solid #cbd5e1;">₹${(p.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td style="padding: 10px 12px; text-align: right; font-weight: bold; color: #000000;">₹${(p.quantity * p.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  `).join('')}
+                  <tr style="background-color: #f8fafc; border-top: 2px solid #cbd5e1; font-weight: bold;">
+                    <td colspan="3" style="padding: 8px 12px; text-align: right; color: #000000; border-right: 1px solid #cbd5e1;">Total Amount</td>
+                    <td colspan="2" style="padding: 8px 12px; text-align: right; color: #000000; font-size: 12px; font-weight: 800;">₹${piTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                  <tr style="background-color: #f1f5f9; border-top: 1px solid #cbd5e1; font-weight: 800; font-size: 12px;">
+                    <td colspan="3" style="padding: 10px 12px; text-align: right; color: #000000; border-right: 1px solid #cbd5e1;">Total Payable Amount</td>
+                    <td colspan="2" style="padding: 10px 12px; text-align: right; color: #1e3a8a; font-size: 13px; font-weight: 900;">₹${piTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- Amount in Words -->
+              <div style="font-size: 11px; color: #000000; font-style: italic; margin-bottom: 20px; padding: 0 4px;">
+                Net Payable to Pinnacle Grid Skill Innovations LLP: <strong style="color: #000000; font-style: normal;">Rs. ${numberToRupeesWords(piTotalAmount)}</strong>
+              </div>
+
+              <!-- Banking & Legal -->
+              <table style="width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 20px; background-color: #f8fafc; font-size: 11px; color: #000000;">
+                <tr>
+                  <td style="padding: 12px; vertical-align: middle; line-height: 1.6; width: 65%;">
+                    <strong style="font-size: 9px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 6px;">BANKING & PAYMENT INFO</strong>
+                    <span style="color: #000000;">In Favour of:</span> <span style="color: #000000; font-weight: bold;">PINNACLE GRID SKILLS AND INNOVATION LLP</span><br/>
+                    <span style="color: #000000;">Name Of the Bank:</span> <span style="color: #000000;">Punjab National Bank</span><br/>
+                    <span style="color: #000000;">Current Account No:</span> <strong style="font-family: monospace; color: #000000;">8789002100003460</strong><br/>
+                    <span style="color: #000000;">IFSC Code:</span> <strong style="font-family: monospace; color: #000000;">PUNB0878900</strong><br/>
+                    <span style="color: #000000;">UPI ID:</span> <strong style="font-family: monospace; color: #000000;">9100305750m@pnb</strong>
+                  </td>
+                  <td style="width: 35%; border-left: 1px solid #cbd5e1; padding: 12px; text-align: center; vertical-align: middle;">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent('upi://pay?pa=9100305750m@pnb&pn=PINNACLE GRID SKILLS AND INNOVATION LLP')}" style="width: 110px; height: 110px; object-fit: contain; margin-bottom: 4px;" /><br/>
+                    <span style="font-size: 8px; font-weight: bold; color: #000000; letter-spacing: 0.05em; text-transform: uppercase;">Scan to Pay via UPI</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Compliance Policies -->
+              <div style="margin-bottom: 20px; padding: 0 4px; color: #000000;">
+                <strong style="font-size: 10px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 6px;">POLICIES & LEGAL COMPLIANCE</strong>
+                <ul style="margin: 0; padding-left: 15px; font-size: 9.5px; color: #000000; line-height: 1.5; list-style-type: disc;">
+                  <li style="margin-bottom: 4px;">All services are governed by the Master Service Agreement (MSA) signed between the parties.</li>
+                  <li style="margin-bottom: 4px;">Payments must be cleared within 7 days of invoice date to avoid service disruption.</li>
+                  <li style="margin-bottom: 4px;">Pinnacle Grid is not liable for performance variations caused by third-party platform updates (Google, Meta, etc.).</li>
+                  <li style="margin-bottom: 4px;">Intellectual property transfer of deliverables occurs only upon full receipt of the invoiced amount.</li>
+                  <li style="margin-bottom: 4px;">Post-implementation support & maintenance will be billed separately unless explicitly included.</li>
+                  <li style="margin-bottom: 4px;">Jurisdiction: Disputes, if any, shall be subject exclusively to the courts of Hyderabad, Telangana.</li>
+                </ul>
+              </div>
+
+              <!-- Footer -->
+              <div style="border-top: 2px solid #1e3a8a; padding-top: 10px; margin-top: 20px; text-align: center; color: #000000;">
+                <div style="font-size: 10px; font-weight: bold; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 2px;">Thank you for choosing Pinnacle Grid Skill Innovations LLP</div>
+                <div style="font-size: 8px; font-weight: bold; color: #000000;">
+                  Make Your Brand InExorable | 
+                  website: <a href="https://pinnaclegrid.com" target="_blank" style="color: #1e3a8a; text-decoration: none; font-weight: bold;">pinnaclegrid.com</a> | 
+                  Email: <a href="mailto:info@pinnaclegrid.com" style="color: #1e3a8a; text-decoration: none; font-weight: bold;">info@pinnaclegrid.com</a>
+                </div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `);
+      iframeDoc.close();
+
+      // Wait a moment for any image (logo/QR) to load and html2pdf to initialize inside the iframe
+      await new Promise((resolve) => {
+        iframe.onload = () => {
+          setTimeout(resolve, 800);
+        };
+        // Fallback in case load event already fired
+        setTimeout(resolve, 1000);
+      });
+
+      const printElement = iframeDoc.getElementById('print-content');
+      const iframeWindow = iframe.contentWindow;
+      if (!printElement || !iframeWindow || !(iframeWindow as any).html2pdf) {
+        throw new Error('Isolated print content or library context not found');
+      }
+
+      const opt = {
+        margin: 0.15,
+        filename: `PI_${piInvoiceNo.replace(/\//g, '_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+
+      // Generate PDF data uri string calling the isolated html2pdf in the iframe window
+      const pdfBase64 = await (iframeWindow as any).html2pdf().from(printElement).set(opt).outputPdf('datauristring');
+
+      // Post payload to GAS webapp
+      const payload = {
+        userdetails: {
+          id: piClientId,
+          name: piClientName,
+          mobile: String(piClientMobile),
+          email: piClientEmail,
+          invoiceno: piInvoiceNo,
+          invoice: {
+            data: pdfBase64,
+            mimeType: 'application/pdf',
+            fileName: `PI_${piInvoiceNo.replace(/\//g, '_')}.pdf`
+          }
+        }
+      };
+
+      try {
+        await fetch('https://script.google.com/macros/s/AKfycbw0t02kFENnSvM6GAa9FXvQPsRO956_cUGH7dCcEdeqGR4ugtlEmoUmXpGcnqS2T7q6gw/exec', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          }
+        });
+      } catch (apiErr) {
+        console.warn('API call redirect handled:', apiErr);
+      }
+
+      // Trigger download directly in the parent window using the base64 PDF data URI
+      const link = document.createElement('a');
+      link.href = pdfBase64;
+      link.download = `PI_${piInvoiceNo.replace(/\//g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up isolated iframe
+      document.body.removeChild(iframe);
+
+      setPiSubmitStatus('success');
+      setPiSubmitMessage('PI saved to sheet and downloaded successfully!');
+    } catch (err: any) {
+      console.error(err);
+      setPiSubmitStatus('error');
+      setPiSubmitMessage(`Failed to generate PI: ${err.message || err.toString()}`);
+    } finally {
+      setIsPiSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -281,7 +672,12 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           review_url: editUrl,
-          is_activated: true 
+          is_activated: true,
+          client_name: editClientName,
+          client_company: editClientCompany,
+          client_phone: editClientPhone,
+          client_email: editClientEmail,
+          client_address: editClientAddress
         }),
       });
       if (res.ok) {
@@ -297,7 +693,9 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
   };
 
   const filteredCards = cards.filter(c => {
-    const matchesSearch = c.card_id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = c.card_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (c.client_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (c.client_company || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || 
                          (statusFilter === 'active' && c.is_activated) || 
                          (statusFilter === 'pending' && !c.is_activated);
@@ -331,6 +729,7 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
       { id: 'inventory', icon: CreditCard, label: 'NFC Inventory' },
       ...(userRole === 'admin' ? [{ id: 'analytics', icon: BarChart3, label: 'Analytics' }] : []),
       { id: 'settings', icon: Settings, label: 'Settings' },
+      { id: 'generate-pi', icon: FileText, label: 'Generate PI' },
     ];
     return (
       <nav className="space-y-1">
@@ -425,11 +824,11 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
         </div>
       )}
 
-      {/* EDIT URL MODAL */}
+      {/* EDIT URL & CLIENT MODAL */}
       {editingCard && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setEditingCard(null)} />
-          <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-xl p-8 animate-in zoom-in-95 duration-200 border border-slate-200">
+          <div className="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 sm:p-8 animate-in zoom-in-95 duration-200 border border-slate-200 my-8">
             <button 
               onClick={() => setEditingCard(null)}
               className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all"
@@ -437,40 +836,105 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
               <X size={20} />
             </button>
             
-            <div className="text-center mb-8">
-              <div className="w-12 h-12 bg-primary/5 rounded-xl flex items-center justify-center mx-auto mb-4 text-primary">
-                <ExternalLink size={24} />
+            <div className="mb-6 pb-4 border-b border-slate-100 flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/5 rounded-xl flex items-center justify-center text-primary shrink-0">
+                <CreditCard size={24} />
               </div>
-              <h3 className="text-xl font-bold text-slate-900">Update Destination</h3>
-              <p className="text-slate-500 font-medium text-xs mt-1">ID: {editingCard.card_id}</p>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Asset Configuration & Client Assignment</h3>
+                <p className="text-slate-400 font-semibold text-xs mt-0.5">Configure hardware target routing and customer details mapping for Serial: <span className="font-mono text-primary bg-primary/5 px-2 py-0.5 rounded">{editingCard.card_id}</span></p>
+              </div>
             </div>
 
-            <form onSubmit={handleUpdateUrl} className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Destination URL</label>
+            <form onSubmit={handleUpdateUrl} className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-0.5">Destination URL</label>
                 <input 
                   type="url"
                   required
                   value={editUrl}
                   onChange={(e) => setEditUrl(e.target.value)}
-                  placeholder="https://g.page/r/your-id/review"
-                  className="input-premium"
+                  placeholder="https://connect.pinnaclegrid.com/profile/client-id"
+                  className="input-premium text-xs focus:ring-primary/20 focus:border-primary"
                 />
-                <p className="text-[10px] text-slate-400 font-medium px-1 underline decoration-primary/20">Changes sync instantly to your global NFC assets.</p>
+                <p className="text-[10px] text-slate-400 font-medium px-0.5 leading-normal">
+                  The dynamic target website users are redirected to when scanning the physical NFC card.
+                </p>
               </div>
 
-              <div className="flex gap-3">
+              <div className="space-y-4 border-t border-slate-100 pt-4">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Client Identity</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Client Name</label>
+                    <input 
+                      type="text"
+                      value={editClientName}
+                      onChange={(e) => setEditClientName(e.target.value)}
+                      placeholder="e.g. Sri Sant"
+                      className="input-premium text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Company Name</label>
+                    <input 
+                      type="text"
+                      value={editClientCompany}
+                      onChange={(e) => setEditClientCompany(e.target.value)}
+                      placeholder="e.g. Sri Sant Krupa Dry Nuts"
+                      className="input-premium text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Mobile Number</label>
+                    <input 
+                      type="tel"
+                      value={editClientPhone}
+                      onChange={(e) => setEditClientPhone(e.target.value)}
+                      placeholder="e.g. 9100305750"
+                      className="input-premium text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Email Address</label>
+                    <input 
+                      type="email"
+                      value={editClientEmail}
+                      onChange={(e) => setEditClientEmail(e.target.value)}
+                      placeholder="e.g. contact@domain.com"
+                      className="input-premium text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Physical Address</label>
+                  <textarea 
+                    value={editClientAddress}
+                    onChange={(e) => setEditClientAddress(e.target.value)}
+                    placeholder="e.g. Suite 101, Nagarjuna Nagar, Hyderabad"
+                    rows={2}
+                    className="input-premium py-2 resize-none text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-3">
                 <button 
                   type="submit" 
                   disabled={isUpdating}
-                  className="btn-premium-primary flex-1"
+                  className="btn-premium-primary flex-1 py-2.5 h-11"
                 >
-                  {isUpdating ? 'Saving...' : 'Update Destination'}
+                  {isUpdating ? 'Saving...' : 'Update & Save Configuration'}
                 </button>
                 <button 
                   type="button" 
                   onClick={() => setEditingCard(null)}
-                  className="btn-premium-secondary px-8"
+                  className="btn-premium-secondary px-8 py-2.5 h-11"
                 >
                   Cancel
                 </button>
@@ -479,11 +943,10 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
           </div>
         </div>
       )}
-      <aside className="w-64 bg-white border-r border-slate-200 hidden lg:flex flex-col sticky top-0 h-screen">
+      <aside className="w-64 shrink-0 bg-white border-r border-slate-200 hidden lg:flex flex-col sticky top-0 h-screen">
         <div className="p-6">
-          <Link href="/" className="flex items-center gap-3 mb-10 pl-2">
+          <Link href="/" className="flex items-center mb-10 pl-2">
             <img src="/PINNACLE_GRID_LOGO.png" alt="Pinnacle Grid Logo" className="h-8 w-auto object-contain" />
-            <span className="text-xl font-bold tracking-tight text-slate-900">Pinnacle Grid</span>
           </Link>
           <NavItems />
         </div>
@@ -504,9 +967,8 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
           <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
           <nav className="absolute top-0 left-0 bottom-0 w-72 bg-white shadow-xl p-6 flex flex-col animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between mb-10">
-              <Link href="/" className="flex items-center gap-3">
+              <Link href="/" className="flex items-center">
                 <img src="/PINNACLE_GRID_LOGO.png" alt="Pinnacle Grid Logo" className="h-8 w-auto object-contain" />
-                <span className="text-xl font-bold tracking-tight text-slate-900">Pinnacle Grid</span>
               </Link>
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-400">
                 <X size={20} />
@@ -746,7 +1208,11 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
                                   </div>
                                   <div className="flex flex-col gap-0.5">
                                     <span className="font-bold text-slate-900 text-sm group-hover:text-white transition-colors text-inter tracking-tight">{card.card_id}</span>
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-white/70 transition-colors">Pinnacle Asset</span>
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-white/70 transition-colors">
+                                      {card.client_company || card.client_name 
+                                        ? `${card.client_name}${card.client_name && card.client_company ? ' @ ' : ''}${card.client_company}` 
+                                        : 'Pinnacle Asset'}
+                                    </span>
                                   </div>
                                 </div>
                               </td>
@@ -759,7 +1225,16 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
                               <td className="px-6 py-4.5">
                                 <div className="flex items-center justify-end gap-1.5 transition-all duration-300">
                                     <button 
-                                      onClick={(e) => { e.stopPropagation(); setEditingCard(card); setEditUrl(card.review_url || ''); }}
+                                      onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        setEditingCard(card); 
+                                        setEditUrl(card.review_url || ''); 
+                                        setEditClientName(card.client_name || '');
+                                        setEditClientCompany(card.client_company || '');
+                                        setEditClientPhone(card.client_phone || '');
+                                        setEditClientEmail(card.client_email || '');
+                                        setEditClientAddress(card.client_address || '');
+                                      }}
                                       className="p-2 text-slate-400 bg-transparent hover:bg-white/20 rounded-md transition-all group-hover:text-white group-hover:hover:bg-white group-hover:hover:text-primary"
                                       title="Config"
                                     >
@@ -869,11 +1344,66 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
 
           {activeTab === 'analytics' && (
             <div className="space-y-8 animate-in fade-in duration-700">
+              
+              {/* Stat Cards at Top */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                  { 
+                    label: 'Avg Scans/Day', 
+                    value: analyticsStats.avgScansPerDay, 
+                    icon: Activity, 
+                    bgColor: 'bg-primary/5', 
+                    textColor: 'text-primary',
+                    glow: 'hover:shadow-primary/5 hover:border-primary/30' 
+                  },
+                  { 
+                    label: 'Peak Time', 
+                    value: analyticsStats.peakTime, 
+                    icon: Clock, 
+                    bgColor: 'bg-indigo-50', 
+                    textColor: 'text-indigo-600',
+                    glow: 'hover:shadow-indigo-500/5 hover:border-indigo-500/30' 
+                  },
+                  { 
+                    label: 'Unique Reach', 
+                    value: analyticsStats.uniqueReach, 
+                    icon: Smartphone, 
+                    bgColor: 'bg-emerald-50', 
+                    textColor: 'text-emerald-600',
+                    glow: 'hover:shadow-emerald-500/5 hover:border-emerald-500/30' 
+                  },
+                  { 
+                    label: 'System Health', 
+                    value: analyticsStats.systemHealth, 
+                    icon: CheckCircle2, 
+                    bgColor: 'bg-emerald-50', 
+                    textColor: 'text-emerald-600',
+                    glow: 'hover:shadow-emerald-500/5 hover:border-emerald-500/30' 
+                  },
+                ].map((stat, i) => (
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all duration-300 relative overflow-hidden group hover:-translate-y-1 hover:shadow-md",
+                      stat.glow
+                    )}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                       <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center transition-all group-hover:scale-105", stat.bgColor, stat.textColor)}>
+                          <stat.icon size={16} />
+                       </div>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                    </div>
+                    <p className="text-2xl font-extrabold text-slate-900 tracking-tight font-outfit">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+
               {/* Dynamic Analytics Layout Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
                 {/* Main Graph Card */}
-                <div className="lg:col-span-2 bg-white p-8 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                <div className="lg:col-span-2 bg-white p-8 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-all duration-300">
                   <div>
                     <div className="mb-10 flex flex-col sm:flex-row justify-between items-start gap-6 relative z-10">
                       <div>
@@ -938,9 +1468,10 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
                             type="monotone" 
                             dataKey="taps" 
                             stroke="#004AAD" 
-                            strokeWidth={3} 
+                            strokeWidth={4} 
                             fillOpacity={1} 
                             fill="url(#colorTaps)" 
+                            activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2 }}
                             animationDuration={1000}
                           />
                         </AreaChart>
@@ -953,8 +1484,8 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
                 <div className="flex flex-col gap-6">
                   
                   {/* Device Analytics Panel */}
-                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Device breakdown</h4>
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Device breakdown</h4>
                     <div className="space-y-4">
                       {((analyticsData?.devices && analyticsData.devices.length > 0) 
                         ? analyticsData.devices 
@@ -963,49 +1494,67 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
                             { name: 'Desktop', value: 0, percentage: 0 },
                             { name: 'Tablet', value: 0, percentage: 0 },
                           ]
-                      ).map((device) => {
-                        const Icon = device.name === 'Mobile' ? Smartphone : device.name === 'Desktop' ? Monitor : Tablet;
-                        return (
-                          <div key={device.name} className="space-y-1.5">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="font-semibold text-slate-500 flex items-center gap-1.5">
-                                <Icon size={14} className="text-slate-400" />
-                                {device.name}
-                              </span>
-                              <span className="font-extrabold text-slate-800">
-                                {device.percentage}% <span className="text-[10px] text-slate-400 font-medium">({device.value})</span>
-                              </span>
-                            </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-primary rounded-full transition-all duration-700" 
-                                style={{ width: `${device.percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
+                       ).map((device) => {
+                         const Icon = device.name === 'Mobile' ? Smartphone : device.name === 'Desktop' ? Monitor : Tablet;
+                         const progressColor = device.name === 'Mobile' ? 'bg-emerald-500' : device.name === 'Desktop' ? 'bg-primary' : 'bg-amber-500';
+                         const lightGlow = device.name === 'Mobile' ? 'bg-emerald-50' : device.name === 'Desktop' ? 'bg-primary/5' : 'bg-amber-50';
+                         const textGlow = device.name === 'Mobile' ? 'text-emerald-600' : device.name === 'Desktop' ? 'text-primary' : 'text-amber-600';
+                         
+                         return (
+                           <div key={device.name} className="space-y-2 p-2 rounded-lg hover:bg-slate-50/50 transition-all">
+                             <div className="flex justify-between items-center text-xs">
+                               <span className="font-semibold text-slate-500 flex items-center gap-2">
+                                 <div className={cn("p-1.5 rounded-md", lightGlow, textGlow)}>
+                                   <Icon size={12} className="shrink-0" />
+                                 </div>
+                                 {device.name}
+                               </span>
+                               <span className="font-extrabold text-slate-800">
+                                 {device.percentage}% <span className="text-[10px] text-slate-400 font-medium">({device.value})</span>
+                               </span>
+                             </div>
+                             <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                               <div 
+                                 className={cn("h-full rounded-full transition-all duration-700", progressColor)} 
+                                 style={{ width: `${device.percentage}%` }}
+                               />
+                             </div>
+                           </div>
+                         );
+                       })}
                     </div>
                   </div>
 
                   {/* Top Performing Cards */}
-                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex-1">
-                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Top active assets</h4>
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex-1 hover:shadow-md transition-all duration-300">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Top active assets</h4>
                     {(!analyticsData?.topCards || analyticsData.topCards.length === 0) ? (
                       <div className="text-center py-6 text-slate-400 text-xs font-medium">
                         No taps recorded in this timeframe
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-2.5">
                         {analyticsData.topCards.map((card) => (
-                          <div key={card.card_id} className="flex justify-between items-center p-2 rounded-lg hover:bg-slate-50/80 transition-colors border border-transparent hover:border-slate-100">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 bg-primary/10 text-primary text-[10px] font-black rounded-lg flex items-center justify-center">
-                                {card.card_id.slice(0, 2).toUpperCase()}
+                          <div key={card.card_id} className="flex justify-between items-center p-2.5 rounded-lg hover:bg-slate-50/80 transition-all border border-transparent hover:border-slate-100/50">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center font-black text-[10px] shadow-sm shrink-0",
+                                card.client_company 
+                                  ? 'bg-gradient-to-tr from-primary/10 to-indigo-600/10 text-primary'
+                                  : 'bg-slate-100 text-slate-400'
+                              )}>
+                                {card.client_name ? card.client_name.slice(0, 2).toUpperCase() : card.card_id.slice(0, 2).toUpperCase()}
                               </div>
-                              <span className="text-xs font-bold text-slate-700 truncate max-w-[120px] font-inter tracking-tight">{card.card_id}</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-bold text-slate-800 truncate font-inter tracking-tight leading-tight">
+                                  {card.client_name || card.card_id}
+                                </span>
+                                <span className="text-[9px] font-semibold text-slate-400 truncate leading-none mt-0.5">
+                                  {card.client_company ? `${card.client_company} (${card.card_id})` : 'Pinnacle Asset'}
+                                </span>
+                              </div>
                             </div>
-                            <span className="text-[10px] font-extrabold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-full">{card.count} taps</span>
+                            <span className="text-[10px] font-extrabold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-full shrink-0">{card.count} taps</span>
                           </div>
                         ))}
                       </div>
@@ -1013,32 +1562,6 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
                   </div>
 
                 </div>
-              </div>
-
-              {/* Stat Cards at Bottom */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
-                  { label: 'Avg Scans/Day', value: analyticsStats.avgScansPerDay, icon: Activity, glow: 'hover:shadow-primary/5 hover:border-primary/30' },
-                  { label: 'Peak Time', value: analyticsStats.peakTime, icon: Clock, glow: 'hover:shadow-indigo-500/5 hover:border-indigo-500/30' },
-                  { label: 'Unique Reach', value: analyticsStats.uniqueReach, icon: Smartphone, glow: 'hover:shadow-emerald-500/5 hover:border-emerald-500/30' },
-                  { label: 'System Health', value: analyticsStats.systemHealth, icon: CheckCircle2, glow: 'hover:shadow-amber-500/5 hover:border-amber-500/30' },
-                ].map((stat, i) => (
-                  <div 
-                    key={i} 
-                    className={cn(
-                      "bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition-all duration-300 relative overflow-hidden group hover:-translate-y-0.5",
-                      stat.glow
-                    )}
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                       <div className="w-9 h-9 rounded-lg bg-primary/5 flex items-center justify-center text-primary transition-colors group-hover:bg-primary group-hover:text-white">
-                          <stat.icon size={16} />
-                       </div>
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-                    </div>
-                    <p className="text-2xl font-extrabold text-slate-900 tracking-tight font-outfit">{stat.value}</p>
-                  </div>
-                ))}
               </div>
             </div>
           )}
@@ -1336,6 +1859,353 @@ export default function DashboardClient({ initialCards, user }: { initialCards: 
 
                   </div>
 
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'generate-pi' && (
+            <div className="space-y-8 animate-in fade-in duration-700">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 tracking-tight font-outfit">Proforma Invoice Generator</h2>
+                <p className="text-slate-500 font-medium text-xs mt-1">Design, preview, and provision a professional proforma invoice for corporate clients.</p>
+              </div>
+
+              {piSubmitStatus && (
+                <div className={cn(
+                  "p-4 rounded-xl border font-semibold text-xs transition-all duration-300",
+                  piSubmitStatus === 'success' ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-rose-50 border-rose-200 text-rose-700"
+                )}>
+                  {piSubmitMessage}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
+                {/* FORM CONTROLS PANEL */}
+                <div className="xl:col-span-2 space-y-6">
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">Client & Invoice Information</h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client Name</label>
+                        <input 
+                          type="text" 
+                          value={piClientName} 
+                          onChange={(e) => setPiClientName(e.target.value)} 
+                          placeholder="e.g. Acme Corporation" 
+                          className="input-premium text-xs focus:ring-primary/20 focus:border-primary" 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client Email</label>
+                        <input 
+                          type="email" 
+                          value={piClientEmail} 
+                          onChange={(e) => setPiClientEmail(e.target.value)} 
+                          placeholder="e.g. accounts@acme.com" 
+                          className="input-premium text-xs focus:ring-primary/20 focus:border-primary" 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client Mobile</label>
+                        <input 
+                          type="text" 
+                          value={piClientMobile} 
+                          onChange={(e) => setPiClientMobile(e.target.value)} 
+                          placeholder="e.g. +91 9876543210" 
+                          className="input-premium text-xs focus:ring-primary/20 focus:border-primary" 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Asset / Client ID</label>
+                        <input 
+                          type="text" 
+                          value={piClientId} 
+                          onChange={(e) => setPiClientId(e.target.value)} 
+                          placeholder="e.g. NFC-PG-001 or CLI-09" 
+                          className="input-premium text-xs font-mono focus:ring-primary/20 focus:border-primary" 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client Address</label>
+                      <textarea 
+                        value={piClientAddress} 
+                        onChange={(e) => setPiClientAddress(e.target.value)} 
+                        placeholder="e.g. Suite 404, Cyber Towers, Hitec City, Hyderabad" 
+                        rows={2}
+                        className="input-premium text-xs py-2 resize-none focus:ring-primary/20 focus:border-primary" 
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Invoice Number</label>
+                        <input 
+                          type="text" 
+                          value={piInvoiceNo} 
+                          onChange={(e) => setPiInvoiceNo(e.target.value)} 
+                          className="input-premium text-xs font-mono focus:ring-primary/20 focus:border-primary" 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Invoice Date</label>
+                        <input 
+                          type="date" 
+                          value={piDate} 
+                          onChange={(e) => setPiDate(e.target.value)} 
+                          className="input-premium text-xs focus:ring-primary/20 focus:border-primary" 
+                        />
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Line Items (Products/Services)</h3>
+                      <button 
+                        type="button" 
+                        onClick={handleAddPiProduct}
+                        className="text-[10px] font-bold text-primary bg-primary/5 hover:bg-primary/10 px-2.5 py-1 rounded transition-colors"
+                      >
+                        + Add Item
+                      </button>
+                    </div>
+
+                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+                      {piProducts.map((prod, idx) => (
+                        <div key={idx} className="p-4 bg-slate-50 rounded-lg border border-slate-100 space-y-3 relative">
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemovePiProduct(idx)}
+                            className="absolute top-2 right-2 text-slate-400 hover:text-rose-600 transition-colors p-1"
+                            title="Remove item"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                          
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Description</label>
+                            <input 
+                              type="text" 
+                              value={prod.description} 
+                              onChange={(e) => handleUpdatePiProduct(idx, 'description', e.target.value)} 
+                              placeholder="e.g. SEO Optimization Campaign" 
+                              className="input-premium text-xs bg-white focus:ring-primary/20 focus:border-primary" 
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">SAC/HSN</label>
+                              <input 
+                                type="text" 
+                                value={prod.hsnSac} 
+                                onChange={(e) => handleUpdatePiProduct(idx, 'hsnSac', e.target.value)} 
+                                placeholder="998311" 
+                                className="input-premium text-xs bg-white font-mono focus:ring-primary/20 focus:border-primary" 
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Qty/Days</label>
+                              <input 
+                                type="number" 
+                                value={prod.quantity} 
+                                onChange={(e) => handleUpdatePiProduct(idx, 'quantity', Number(e.target.value))} 
+                                className="input-premium text-xs bg-white focus:ring-primary/20 focus:border-primary" 
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Rate (₹)</label>
+                              <input 
+                                type="number" 
+                                value={prod.rate} 
+                                onChange={(e) => handleUpdatePiProduct(idx, 'rate', Number(e.target.value))} 
+                                className="input-premium text-xs bg-white focus:ring-primary/20 focus:border-primary" 
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button 
+                      type="button" 
+                      disabled={isPiSubmitting}
+                      onClick={handleSaveAndDownloadPi}
+                      className="btn-premium-primary w-full py-3 h-12 flex items-center justify-center gap-2"
+                    >
+                      {isPiSubmitting ? 'Saving and Generating PDF...' : 'Save & Download Proforma Invoice'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* INVOICE LIVE PREVIEW PANEL */}
+                <div className="xl:col-span-3">
+                  <div className="bg-slate-100 p-6 rounded-xl border border-slate-200 shadow-inner flex justify-center overflow-x-auto">
+                    <div 
+                      id="printable-pi-invoice" 
+                      className="w-[800px] min-h-[1050px] bg-white p-8 shadow-2xl relative flex flex-col justify-between font-sans text-black border border-slate-300"
+                      style={{ fontSize: '12px', lineHeight: '1.4' }}
+                    >
+                      {/* Top Header */}
+                      <div>
+                        <div className="flex justify-between items-start border-b-2 border-slate-200 pb-4 mb-4 text-black">
+                          <div className="flex items-center gap-3">
+                            <img src="/PINNACLE_GRID_LOGO.png" alt="Pinnacle Grid Logo" className="h-12 w-auto object-contain" />
+                            <div>
+                              <h1 className="text-base font-extrabold text-[#1e3a8a] tracking-tight">Pinnacle Grid Skill Innovations LLP</h1>
+                              <p className="text-[9px] text-[#1e3a8a] font-bold italic tracking-wide mt-0.5">Make Your Brand InExorable</p>
+                            </div>
+                          </div>
+                          <div className="text-right text-[10px] text-black space-y-0.5">
+                            <p className="font-bold text-[#1e3a8a]">Pinnacle Grid Skill Innovations LLP</p>
+                            <p>Hyderabad, Telangana, India</p>
+                            <p>Contact: +91 9100305750</p>
+                            <p>Email: <a href="mailto:info@pinnaclegrid.com" className="text-[#1e3a8a] font-bold hover:underline">info@pinnaclegrid.com</a> | website: <a href="https://pinnaclegrid.com" target="_blank" className="text-[#1e3a8a] font-bold hover:underline">pinnaclegrid.com</a></p>
+                          </div>
+                        </div>
+
+                        {/* Invoice Title */}
+                        <div className="text-center my-4">
+                          <h2 className="text-lg font-black tracking-widest text-[#1e3a8a] border-b-2 border-[#1e3a8a] pb-1 inline-block">PROFORMA INVOICE</h2>
+                        </div>
+
+                        {/* Invoice Details Block */}
+                        <div className="grid grid-cols-2 gap-4 border border-slate-300 rounded-lg p-3 mb-4 bg-slate-50/50 text-black">
+                          <div className="space-y-1">
+                            <p className="text-[10px] text-[#1e3a8a] font-extrabold uppercase tracking-wider">Invoice details</p>
+                            <div className="grid grid-cols-3 gap-1 text-[11px] text-black">
+                              <span className="font-bold">Invoice No</span>
+                              <span className="col-span-2 font-normal">: {piInvoiceNo}</span>
+
+                              <span className="font-bold">Invoice Date</span>
+                              <span className="col-span-2 font-normal">: {piDate}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-1 border-l border-slate-300 pl-4">
+                            <p className="text-[10px] text-[#1e3a8a] font-extrabold uppercase tracking-wider">Reference Info</p>
+                            <div className="grid grid-cols-3 gap-1 text-[11px] text-black">
+                              <span className="font-bold">Place of Supply</span>
+                              <span className="col-span-2 font-normal">: {piClientAddress || 'N/A'}</span>
+
+                              <span className="font-bold">Client / Ref ID</span>
+                              <span className="col-span-2 font-normal">: {piClientId || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Client details Composition */}
+                        <div className="border border-slate-300 rounded-lg p-3 mb-4 bg-white text-black">
+                          <p className="text-[10px] text-[#1e3a8a] font-extrabold uppercase tracking-wider mb-1.5">Client Details & Billing Composition</p>
+                          <div className="grid grid-cols-2 gap-4 text-black">
+                            <div>
+                              <p className="text-xs font-bold text-black">{piClientName || 'Client Name'}</p>
+                              <p className="text-[11px] text-black mt-1 leading-relaxed whitespace-pre-wrap">{piClientAddress || 'Billing Address...'}</p>
+                            </div>
+                            <div className="text-right text-[11px] space-y-0.5 text-black">
+                              <p><span className="font-bold">Email:</span> <a href={`mailto:${piClientEmail}`} className="text-[#1e3a8a] font-bold hover:underline">{piClientEmail || 'client@email.com'}</a></p>
+                              <p><span className="font-bold">Mobile:</span> <span className="font-normal">{piClientMobile || '+91 99999 99999'}</span></p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Products / Services Table */}
+                        <div className="border border-slate-300 rounded-lg overflow-hidden mb-4">
+                          <table className="w-full text-left border-collapse text-black">
+                            <thead>
+                              <tr className="bg-slate-100 text-[10px] font-bold text-black uppercase border-b border-slate-300">
+                                <th className="px-4 py-2 border-r border-slate-300 text-[#1e3a8a]">Service / Product Description</th>
+                                <th className="px-4 py-2 text-center w-24 border-r border-slate-300 text-[#1e3a8a]">HSN/SAC</th>
+                                <th className="px-4 py-2 text-center w-20 border-r border-slate-300 text-[#1e3a8a]">Days/Qty</th>
+                                <th className="px-4 py-2 text-right w-28 border-r border-slate-300 text-[#1e3a8a]">Rate (₹)</th>
+                                <th className="px-4 py-2 text-right w-32 text-[#1e3a8a]">Total (₹)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-300 text-black text-xs">
+                              {piProducts.map((p, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50/50">
+                                  <td className="px-4 py-3 font-semibold text-black border-r border-slate-300">{p.description || 'Service Description'}</td>
+                                  <td className="px-4 py-3 text-center font-mono text-black border-r border-slate-300">{p.hsnSac || '-'}</td>
+                                  <td className="px-4 py-3 text-center border-r border-slate-300">{p.quantity}</td>
+                                  <td className="px-4 py-3 text-right font-semibold border-r border-slate-300">₹{(p.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                  <td className="px-4 py-3 text-right font-bold text-black">₹{(p.quantity * p.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                              ))}
+                              {/* Totals Section */}
+                              <tr className="bg-slate-50/30 text-[11px] border-t border-slate-300">
+                                <td colSpan={3} className="px-4 py-2 text-right font-bold text-black border-r border-slate-300">Total Amount</td>
+                                <td colSpan={2} className="px-4 py-2 text-right font-bold text-black">₹{piTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                              </tr>
+                              <tr className="bg-slate-50 border-t border-slate-300 text-[11px]">
+                                <td colSpan={3} className="px-4 py-2.5 text-right font-extrabold text-black border-r border-slate-300">Total Payable Amount</td>
+                                <td colSpan={2} className="px-4 py-2.5 text-right font-extrabold text-[#1e3a8a] text-sm">₹{piTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Amount in words */}
+                        <div className="mb-4 px-2 text-black">
+                          <p className="text-[11px] italic">
+                            Net Payable to Pinnacle Grid Skill Innovations LLP: <span className="font-bold not-italic">Rs. {numberToRupeesWords(piTotalAmount)}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Bottom Section */}
+                      <div className="space-y-4 pt-4 border-t border-slate-200">
+                        {/* Banking Info */}
+                        <div className="grid grid-cols-3 gap-4 border border-slate-300 rounded-lg p-3 bg-slate-50/40 items-center text-black">
+                          <div className="col-span-2 space-y-1 text-[11px]">
+                            <h4 className="text-[10px] font-bold text-[#1e3a8a] uppercase tracking-wider mb-1">BANKING & PAYMENT INFO</h4>
+                            <p><span className="font-semibold">In Favour of:</span> <span className="font-bold">PINNACLE GRID SKILLS AND INNOVATION LLP</span></p>
+                            <p><span className="font-semibold">Name Of the Bank:</span> <span className="font-normal">Punjab National Bank</span></p>
+                            <p><span className="font-semibold">Current Account No:</span> <span className="font-mono font-bold">8789002100003460</span></p>
+                            <p><span className="font-semibold">IFSC Code:</span> <span className="font-mono font-bold">PUNB0878900</span></p>
+                            <p><span className="font-semibold">UPI ID:</span> <span className="font-mono font-bold">9100305750m@pnb</span></p>
+                          </div>
+                          <div className="flex flex-col items-center justify-center border-l border-slate-300 pl-4 py-1">
+                            <img 
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent('upi://pay?pa=9100305750m@pnb&pn=PINNACLE GRID SKILLS AND INNOVATION LLP')}`} 
+                              alt="Payment QR" 
+                              className="w-28 h-28 object-contain mb-1" 
+                            />
+                            <span className="text-[8px] font-bold text-black tracking-wider">Scan to Pay via UPI</span>
+                          </div>
+                        </div>
+
+                        {/* Policies and legal compliance */}
+                        <div className="space-y-1 px-1 text-black">
+                          <h4 className="text-[10px] font-bold text-[#1e3a8a] uppercase tracking-widest">POLICIES & LEGAL COMPLIANCE</h4>
+                          <ul className="list-disc pl-4 text-[9px] space-y-0.5 leading-normal">
+                            <li>All services are governed by the Master Service Agreement (MSA) signed between the parties.</li>
+                            <li>Payments must be cleared within 7 days of invoice date to avoid service disruption.</li>
+                            <li>Pinnacle Grid is not liable for performance variations caused by third-party platform updates (Google, Meta, etc.).</li>
+                            <li>Intellectual property transfer of deliverables occurs only upon full receipt of the invoiced amount.</li>
+                            <li>Post-implementation support & maintenance will be billed separately unless explicitly included.</li>
+                            <li>Jurisdiction: Disputes, if any, shall be subject exclusively to the courts of Hyderabad, Telangana.</li>
+                          </ul>
+                        </div>
+
+                        {/* Footer details banner */}
+                        <div className="border-t-2 border-slate-200 pt-3 text-center space-y-0.5 mt-2 text-black">
+                          <p className="text-[10px] font-bold tracking-wide">Thank you for choosing Pinnacle Grid Skill Innovations LLP</p>
+                          <p className="text-[8px] font-bold">
+                            Make Your Brand InExorable | 
+                            website: <a href="https://pinnaclegrid.com" target="_blank" className="text-[#1e3a8a] hover:underline">pinnaclegrid.com</a> | 
+                            Email: <a href="mailto:info@pinnaclegrid.com" className="text-[#1e3a8a] hover:underline">info@pinnaclegrid.com</a>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -14,12 +14,28 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const { review_url, is_activated } = await req.json();
+    const { 
+      review_url, 
+      is_activated,
+      client_name,
+      client_company,
+      client_phone,
+      client_email,
+      client_address
+    } = await req.json();
 
     await dbConnect();
     const card = await Card.findByIdAndUpdate(
       id,
-      { review_url, is_activated },
+      { 
+        review_url, 
+        is_activated,
+        client_name,
+        client_company,
+        client_phone,
+        client_email,
+        client_address
+      },
       { new: true, runValidators: true }
     );
 

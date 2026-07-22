@@ -1,0 +1,15 @@
+Company Name = Pinnacle Grid Skill Innovations LLP
+Contact No = 9100305750
+Email = info@pinnaclegrid.com 
+HR = hr@pinnaclegrid.com 
+Website = pinnaclegrid.com 
+logo = \public\PINNACLE_GRID_LOGO.png
+Bank Details = PINNACLE GRID SKILLS AND INNOVATION LLP
+
+Punjab National Bank 
+
+Ac no : 8789002100003460
+
+IFSC CODE : PUNB0878900
+
+upi id - 9100305750m@pnb 
